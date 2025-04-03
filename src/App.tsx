@@ -11,6 +11,9 @@ import NotFound from "./pages/NotFound";
 import { AppLayout } from "./components/layout/AppLayout";
 import Transactions from "./pages/Transactions";
 import TransactionForm from "./pages/TransactionForm";
+import Budgets from "./pages/Budgets";
+import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -32,9 +35,9 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/transactions/new" element={<TransactionForm />} />
-              <Route path="/budgets" element={<div className="p-4"><h1 className="text-3xl font-bold">Budgets</h1><p className="mt-2">Set and track your budget goals</p></div>} />
-              <Route path="/reports" element={<div className="p-4"><h1 className="text-3xl font-bold">Reports</h1><p className="mt-2">View detailed financial reports</p></div>} />
-              <Route path="/settings" element={<div className="p-4"><h1 className="text-3xl font-bold">Settings</h1><p className="mt-2">Manage your account settings</p></div>} />
+              <Route path="/budgets" element={<Budgets />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
             
             {/* Catch-all route */}

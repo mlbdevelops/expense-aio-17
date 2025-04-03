@@ -1,14 +1,12 @@
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Budget } from "@/lib/budgets";
-import { Transaction, CATEGORIES, TransactionCategory } from "@/lib/transactions";
-import { formatCurrency } from "@/lib/utils";
-import { useState, useMemo } from "react";
-import { Button } from "../ui/button";
-import { ChevronRight, Loader2, PlusCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { Separator } from "../ui/separator";
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { useNavigate } from 'react-router-dom';
+import { Loader2, Plus } from 'lucide-react';
+import { Budget } from '@/lib/budgets';
+import { Transaction, CATEGORIES } from '@/lib/transactions';
 
 interface BudgetProgressProps {
   budgets: Budget[];
@@ -16,131 +14,128 @@ interface BudgetProgressProps {
   isLoading: boolean;
 }
 
-export function BudgetProgress({ budgets, transactions, isLoading }: BudgetProgressProps) {
+export const BudgetProgress = ({ budgets, transactions, isLoading }: BudgetProgressProps) => {
   const navigate = useNavigate();
-  const [showAll, setShowAll] = useState(false);
+  const [budgetProgress, setBudgetProgress] = useState<Record<string, { spent: number, percentage: number }>>({});
   
-  const budgetProgress = useMemo(() => {
-    if (!budgets.length || !transactions.length) return [];
-    
-    return budgets.map(budget => {
-      const categoryExpenses = transactions
-        .filter(t => !t.isIncome && t.category === budget.category)
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      const percentage = Math.min(Math.round((categoryExpenses / budget.amount) * 100), 100);
-      
-      return {
-        ...budget,
-        spent: categoryExpenses,
-        percentage,
-        remaining: budget.amount - categoryExpenses,
-        isOverBudget: categoryExpenses > budget.amount,
-      };
-    }).sort((a, b) => b.percentage - a.percentage); // Sort by percentage used (highest first)
+  useEffect(() => {
+    if (budgets.length && transactions.length) {
+      calculateBudgetProgress();
+    }
   }, [budgets, transactions]);
 
-  // Display all or just top 3 budgets
-  const displayBudgets = showAll ? budgetProgress : budgetProgress.slice(0, 3);
+  const calculateBudgetProgress = () => {
+    const progress: Record<string, { spent: number, percentage: number }> = {};
+    
+    // Get current month's data only
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const currentMonthTransactions = transactions.filter(transaction => {
+      const txDate = new Date(transaction.date);
+      return txDate.getMonth() === currentMonth && 
+             txDate.getFullYear() === currentYear && 
+             !transaction.isIncome; // Exclude income
+    });
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Budget Progress</CardTitle>
-          <CardDescription>Track your spending against budgets</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center h-[200px]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (budgetProgress.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Budget Progress</CardTitle>
-          <CardDescription>Track your spending against budgets</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center h-[200px] text-center">
-          <p className="text-muted-foreground mb-4">No budgets created yet</p>
-          <Button 
-            onClick={() => navigate("/budgets")}
-            className="expense-gradient"
-          >
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Create your first budget
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
+    // Calculate spending per category
+    budgets.forEach(budget => {
+      // Only calculate for monthly budgets for now (could expand to yearly)
+      if (budget.period === 'monthly') {
+        const categoryTransactions = currentMonthTransactions.filter(
+          tx => tx.category === budget.category
+        );
+        
+        const totalSpent = categoryTransactions.reduce(
+          (sum, tx) => sum + tx.amount, 0
+        );
+        
+        const percentage = Math.min(Math.round((totalSpent / budget.amount) * 100), 100);
+        
+        progress[budget.id] = {
+          spent: totalSpent,
+          percentage
+        };
+      }
+    });
+    
+    setBudgetProgress(progress);
+  };
+  
+  const getProgressColorClass = (percentage: number) => {
+    if (percentage >= 90) return "bg-red-500";
+    if (percentage >= 70) return "bg-yellow-500";
+    return "bg-green-500"; 
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Budget Progress</CardTitle>
-        <CardDescription>Track your spending against budgets</CardDescription>
+        <CardDescription>Your monthly budget tracking</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {displayBudgets.map((budget) => (
-            <div key={budget.id} className="space-y-1">
-              <div className="flex justify-between">
-                <div className="font-medium">{CATEGORIES[budget.category as TransactionCategory].label}</div>
-                <div className="text-sm">
-                  {formatCurrency(budget.spent)} of {formatCurrency(budget.amount)}
-                </div>
-              </div>
-              <Progress
-                value={budget.percentage}
-                className={budget.isOverBudget ? "bg-red-200" : ""}
-                indicatorClassName={budget.isOverBudget ? "bg-red-500" : (
-                  budget.percentage > 80 ? "bg-orange-500" : "bg-green-500"
-                )}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <div>
-                  {budget.percentage}% used
-                </div>
-                <div>
-                  {budget.isOverBudget ? (
-                    <span className="text-red-500">
-                      {formatCurrency(Math.abs(budget.remaining))} over budget
+        {isLoading ? (
+          <div className="space-y-4">
+            <div className="h-16 bg-gray-100 animate-pulse rounded" />
+            <div className="h-16 bg-gray-100 animate-pulse rounded" />
+            <div className="h-16 bg-gray-100 animate-pulse rounded" />
+          </div>
+        ) : budgets.length > 0 ? (
+          <div className="space-y-5">
+            {budgets.map(budget => {
+              const progress = budgetProgress[budget.id] || { spent: 0, percentage: 0 };
+              const progressColor = getProgressColorClass(progress.percentage);
+              
+              return (
+                <div key={budget.id} className="space-y-2">
+                  <div className="flex justify-between">
+                    <div className="flex flex-col">
+                      <span className="font-medium">{CATEGORIES[budget.category]?.label || budget.category}</span>
+                      <span className="text-sm text-muted-foreground">
+                        ${progress.spent.toFixed(2)} of ${budget.amount.toFixed(2)}
+                      </span>
+                    </div>
+                    <span 
+                      className={`font-medium ${progress.percentage >= 90 ? 'text-red-600' : ''}`}
+                    >
+                      {progress.percentage}%
                     </span>
-                  ) : (
-                    <span>{formatCurrency(budget.remaining)} remaining</span>
-                  )}
+                  </div>
+                  <Progress 
+                    value={progress.percentage} 
+                    className="h-2" 
+                    // The indicator's background color is controlled via CSS in the Progress component
+                    // We don't need to pass an indicatorClassName prop
+                  />
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {budgetProgress.length > 3 && (
-          <Button
-            variant="ghost"
-            className="w-full mt-4"
-            onClick={() => setShowAll(!showAll)}
-          >
-            {showAll ? "Show less" : `Show ${budgetProgress.length - 3} more`}
-          </Button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <p className="text-muted-foreground">No budgets set up yet</p>
+            <p className="text-sm text-muted-foreground mt-1">Create a budget to track your spending</p>
+          </div>
         )}
       </CardContent>
-      <Separator />
-      <CardFooter className="pt-4">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
+      <CardFooter>
+        <Button 
+          variant="outline" 
+          className="w-full" 
           onClick={() => navigate("/budgets")}
         >
-          <span>Manage all budgets</span>
-          <ChevronRight className="h-4 w-4 ml-1" />
+          {budgets.length > 0 ? (
+            "View All Budgets"
+          ) : (
+            <>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Budget
+            </>
+          )}
         </Button>
       </CardFooter>
     </Card>
   );
-}
+};
