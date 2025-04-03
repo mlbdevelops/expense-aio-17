@@ -3,18 +3,31 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import { useAuthStore } from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const Auth = () => {
   const { isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
+  const location = useLocation();
+  // Default to login unless explicitly on register route
+  const [isLogin, setIsLogin] = useState(location.pathname !== "/register");
+  
+  useEffect(() => {
+    // Update form based on route
+    setIsLogin(location.pathname !== "/register");
+  }, [location.pathname]);
   
   useEffect(() => {
     if (isAuthenticated) {
       navigate("/dashboard");
     }
   }, [isAuthenticated, navigate]);
+
+  const toggleAuthMode = () => {
+    // Update URL when toggling between login and register
+    navigate(isLogin ? "/register" : "/login", { replace: true });
+    setIsLogin(!isLogin);
+  };
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
@@ -29,7 +42,7 @@ const Auth = () => {
           
           <div className="mt-6 text-center">
             <button
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={toggleAuthMode}
               className="text-sm text-expense-primary hover:underline"
             >
               {isLogin ? "Don't have an account? Register" : "Already have an account? Login"}

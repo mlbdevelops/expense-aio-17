@@ -2,109 +2,191 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { persist } from 'zustand/middleware';
+import { supabase } from '@/integrations/supabase/client';
+import { Session, User } from '@supabase/supabase-js';
 
-export type User = {
+export type Profile = {
   id: string;
-  name: string;
-  email: string;
-  avatar?: string;
+  name: string | null;
+  email: string | null;
+  avatar: string | null;
 };
 
 type AuthStore = {
   user: User | null;
+  profile: Profile | null;
+  session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
-};
-
-// Demo users
-const DEMO_USERS: Record<string, { password: string; user: User }> = {
-  'user@example.com': {
-    password: 'password123',
-    user: {
-      id: '1',
-      name: 'Demo User',
-      email: 'user@example.com',
-      avatar: 'https://avatars.githubusercontent.com/u/124599?v=4'
-    }
-  },
-  'john@example.com': {
-    password: 'password123',
-    user: {
-      id: '2',
-      name: 'John Doe',
-      email: 'john@example.com',
-      avatar: 'https://avatars.githubusercontent.com/u/1?v=4'
-    }
-  }
+  logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 };
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
+      profile: null,
+      session: null,
       isAuthenticated: false,
       isLoading: false,
+      
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         
         try {
-          // Simulate API call
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
           
-          const userRecord = DEMO_USERS[email];
+          if (error) throw error;
           
-          if (!userRecord || userRecord.password !== password) {
-            throw new Error('Invalid email or password');
+          set({ 
+            user: data.user, 
+            session: data.session,
+            isAuthenticated: true 
+          });
+          
+          // Fetch the user's profile
+          if (data.user) {
+            await get().refreshProfile();
           }
           
-          set({ user: userRecord.user, isAuthenticated: true });
           toast.success('Logged in successfully');
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : 'Failed to login');
+        } catch (error: any) {
+          toast.error(error.message || 'Failed to login');
           throw error;
         } finally {
           set({ isLoading: false });
         }
       },
+      
       register: async (name: string, email: string, password: string) => {
         set({ isLoading: true });
         
         try {
-          // Simulate API call
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                name
+              }
+            }
+          });
           
-          if (DEMO_USERS[email]) {
-            throw new Error('Email already in use');
+          if (error) throw error;
+          
+          set({ 
+            user: data.user, 
+            session: data.session,
+            isAuthenticated: !!data.session 
+          });
+          
+          // If user was created and we have a session, refresh the profile
+          if (data.user && data.session) {
+            await get().refreshProfile();
           }
           
-          const newUser: User = {
-            id: Math.random().toString(36).substring(2, 9),
-            name,
-            email
-          };
-          
-          // In a real app, we would save this to a database
-          DEMO_USERS[email] = { password, user: newUser };
-          
-          set({ user: newUser, isAuthenticated: true });
           toast.success('Account created successfully');
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : 'Failed to register');
+          
+          // Note: With email confirmation enabled, the user won't be signed in automatically
+          if (!data.session) {
+            toast.info('Please check your email to confirm your account');
+          }
+        } catch (error: any) {
+          toast.error(error.message || 'Failed to register');
           throw error;
         } finally {
           set({ isLoading: false });
         }
       },
-      logout: () => {
-        set({ user: null, isAuthenticated: false });
-        toast.success('Logged out successfully');
+      
+      logout: async () => {
+        try {
+          const { error } = await supabase.auth.signOut();
+          if (error) throw error;
+          
+          set({ user: null, profile: null, session: null, isAuthenticated: false });
+          toast.success('Logged out successfully');
+        } catch (error: any) {
+          toast.error(error.message || 'Failed to logout');
+        }
+      },
+      
+      refreshProfile: async () => {
+        const { user } = get();
+        if (!user) return;
+        
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          
+          if (error) throw error;
+          
+          set({ profile: data });
+        } catch (error) {
+          console.error('Error fetching profile:', error);
+        }
       }
     }),
     {
-      name: 'auth-storage'
+      name: 'auth-storage',
+      partialize: (state) => ({ 
+        user: state.user,
+        profile: state.profile,
+        session: state.session,
+        isAuthenticated: state.isAuthenticated
+      })
     }
   )
 );
+
+// Set up auth state listener
+if (typeof window !== 'undefined') {
+  // Check for existing session
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) {
+      const authStore = useAuthStore.getState();
+      authStore.refreshProfile();
+      useAuthStore.setState({ 
+        user: session.user, 
+        session: session,
+        isAuthenticated: true 
+      });
+    }
+  });
+
+  // Listen for auth changes
+  supabase.auth.onAuthStateChange((event, session) => {
+    const authStore = useAuthStore.getState();
+    
+    if (event === 'SIGNED_IN' && session) {
+      useAuthStore.setState({ 
+        user: session.user, 
+        session: session,
+        isAuthenticated: true 
+      });
+      
+      // Use setTimeout to avoid Supabase auth deadlocks
+      setTimeout(() => {
+        authStore.refreshProfile();
+      }, 0);
+    }
+    
+    if (event === 'SIGNED_OUT') {
+      useAuthStore.setState({ 
+        user: null, 
+        profile: null,
+        session: null,
+        isAuthenticated: false 
+      });
+    }
+  });
+}

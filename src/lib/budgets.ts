@@ -3,15 +3,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { toast } from 'sonner';
 import { TransactionCategory, CATEGORIES } from './transactions';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Budget {
   id: string;
-  userId: string;
+  user_id: string;
   category: TransactionCategory;
   amount: number;
   period: 'monthly' | 'yearly';
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface BudgetStore {
@@ -19,68 +20,10 @@ interface BudgetStore {
   isLoading: boolean;
   error: string | null;
   fetchBudgets: (userId: string) => Promise<void>;
-  addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  updateBudget: (id: string, updates: Partial<Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
+  addBudget: (budget: Omit<Budget, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updateBudget: (id: string, updates: Partial<Omit<Budget, 'id' | 'created_at' | 'updated_at'>>) => Promise<void>;
   deleteBudget: (id: string) => Promise<void>;
 }
-
-// Sample budget data
-const DEMO_BUDGETS: Budget[] = [
-  {
-    id: '1',
-    userId: '1',
-    category: 'food',
-    amount: 500,
-    period: 'monthly',
-    createdAt: '2023-01-01T00:00:00Z',
-    updatedAt: '2023-01-01T00:00:00Z'
-  },
-  {
-    id: '2',
-    userId: '1',
-    category: 'housing',
-    amount: 1500,
-    period: 'monthly',
-    createdAt: '2023-01-01T00:00:00Z',
-    updatedAt: '2023-01-01T00:00:00Z'
-  },
-  {
-    id: '3',
-    userId: '1',
-    category: 'transportation',
-    amount: 200,
-    period: 'monthly',
-    createdAt: '2023-01-01T00:00:00Z',
-    updatedAt: '2023-01-01T00:00:00Z'
-  },
-  {
-    id: '4',
-    userId: '1',
-    category: 'entertainment',
-    amount: 150,
-    period: 'monthly',
-    createdAt: '2023-01-01T00:00:00Z',
-    updatedAt: '2023-01-01T00:00:00Z'
-  },
-  {
-    id: '5',
-    userId: '1',
-    category: 'utilities',
-    amount: 300,
-    period: 'monthly',
-    createdAt: '2023-01-01T00:00:00Z',
-    updatedAt: '2023-01-01T00:00:00Z'
-  },
-  {
-    id: '6',
-    userId: '2',
-    category: 'food',
-    amount: 600,
-    period: 'monthly',
-    createdAt: '2023-01-01T00:00:00Z',
-    updatedAt: '2023-01-01T00:00:00Z'
-  }
-];
 
 export const useBudgetStore = create<BudgetStore>()(
   persist(
@@ -91,14 +34,17 @@ export const useBudgetStore = create<BudgetStore>()(
       fetchBudgets: async (userId: string) => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 800));
+          const { data, error } = await supabase
+            .from('budgets')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
           
-          // Filter budgets for the current user
-          const userBudgets = DEMO_BUDGETS.filter(b => b.userId === userId);
-          set({ budgets: userBudgets });
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to fetch budgets';
+          if (error) throw error;
+          
+          set({ budgets: data as Budget[] });
+        } catch (error: any) {
+          const errorMessage = error.message || 'Failed to fetch budgets';
           set({ error: errorMessage });
           toast.error(errorMessage);
         } finally {
@@ -108,32 +54,30 @@ export const useBudgetStore = create<BudgetStore>()(
       addBudget: async (budgetData) => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 600));
-          
           // Check if budget for this category already exists
           const existingBudget = get().budgets.find(
-            b => b.category === budgetData.category && b.userId === budgetData.userId
+            b => b.category === budgetData.category && b.user_id === budgetData.user_id
           );
           
           if (existingBudget) {
             throw new Error(`A budget for ${CATEGORIES[budgetData.category].label} already exists`);
           }
           
-          const newBudget: Budget = {
-            ...budgetData,
-            id: Math.random().toString(36).substring(2, 9),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
+          const { data, error } = await supabase
+            .from('budgets')
+            .insert(budgetData)
+            .select()
+            .single();
+          
+          if (error) throw error;
           
           set(state => ({
-            budgets: [...state.budgets, newBudget]
+            budgets: [...state.budgets, data as Budget]
           }));
           
           toast.success('Budget added successfully');
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to add budget';
+        } catch (error: any) {
+          const errorMessage = error.message || 'Failed to add budget';
           set({ error: errorMessage });
           toast.error(errorMessage);
         } finally {
@@ -143,24 +87,27 @@ export const useBudgetStore = create<BudgetStore>()(
       updateBudget: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 600));
+          const { data, error } = await supabase
+            .from('budgets')
+            .update({
+              ...updates,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', id)
+            .select()
+            .single();
+          
+          if (error) throw error;
           
           set(state => ({
             budgets: state.budgets.map(budget => 
-              budget.id === id 
-                ? { 
-                    ...budget, 
-                    ...updates, 
-                    updatedAt: new Date().toISOString() 
-                  } 
-                : budget
+              budget.id === id ? (data as Budget) : budget
             )
           }));
           
           toast.success('Budget updated successfully');
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to update budget';
+        } catch (error: any) {
+          const errorMessage = error.message || 'Failed to update budget';
           set({ error: errorMessage });
           toast.error(errorMessage);
         } finally {
@@ -170,16 +117,20 @@ export const useBudgetStore = create<BudgetStore>()(
       deleteBudget: async (id) => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 600));
+          const { error } = await supabase
+            .from('budgets')
+            .delete()
+            .eq('id', id);
+          
+          if (error) throw error;
           
           set(state => ({
             budgets: state.budgets.filter(budget => budget.id !== id)
           }));
           
           toast.success('Budget deleted successfully');
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to delete budget';
+        } catch (error: any) {
+          const errorMessage = error.message || 'Failed to delete budget';
           set({ error: errorMessage });
           toast.error(errorMessage);
         } finally {
@@ -188,7 +139,8 @@ export const useBudgetStore = create<BudgetStore>()(
       }
     }),
     {
-      name: 'budget-storage'
+      name: 'budget-storage',
+      partialize: (state) => ({ budgets: state.budgets })
     }
   )
 );

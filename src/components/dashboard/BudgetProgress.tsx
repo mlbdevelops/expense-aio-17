@@ -106,8 +106,6 @@ export const BudgetProgress = ({ budgets, transactions, isLoading }: BudgetProgr
                   <Progress 
                     value={progress.percentage} 
                     className="h-2" 
-                    // The indicator's background color is controlled via CSS in the Progress component
-                    // We don't need to pass an indicatorClassName prop
                   />
                 </div>
               );

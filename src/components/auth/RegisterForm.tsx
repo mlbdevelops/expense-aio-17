@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
-import { toast } from "sonner";
+import { AlertCircle } from "lucide-react";
 
 export function RegisterForm() {
   const navigate = useNavigate();
@@ -15,25 +15,32 @@ export function RegisterForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     if (!name || !email || !password || !confirmPassword) {
-      toast.error("Please fill in all fields");
+      setError("Please fill in all fields");
       return;
     }
     
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
+      setError("Passwords do not match");
+      return;
+    }
+    
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
       return;
     }
     
     try {
       await register(name, email, password);
-      navigate("/dashboard");
-    } catch (error) {
-      // Error is already handled in the auth store
+      // Redirect will happen automatically via the useEffect in Auth.tsx if auto-confirmation is enabled
+    } catch (error: any) {
+      setError(error.message || "Registration failed. Please try again.");
     }
   };
 
@@ -47,6 +54,12 @@ export function RegisterForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
@@ -112,7 +125,7 @@ export function RegisterForm() {
             className="font-medium text-expense-primary hover:underline"
             onClick={(e) => {
               e.preventDefault();
-              navigate("/");
+              navigate("/login");
             }}
           >
             Login

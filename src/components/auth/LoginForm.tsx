@@ -7,26 +7,29 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { toast } from "sonner";
+import { AlertCircle } from "lucide-react";
 
 export function LoginForm() {
   const navigate = useNavigate();
   const { login, isLoading } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     if (!email || !password) {
-      toast.error("Please fill in all fields");
+      setError("Please fill in all fields");
       return;
     }
     
     try {
       await login(email, password);
-      navigate("/dashboard");
-    } catch (error) {
-      // Error is already handled in the auth store
+      // Redirect will happen automatically via the useEffect in Auth.tsx
+    } catch (error: any) {
+      setError(error.message || "Login failed. Please try again.");
     }
   };
 
@@ -40,6 +43,12 @@ export function LoginForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -61,7 +70,7 @@ export function LoginForm() {
                 className="text-sm font-medium text-expense-primary hover:underline"
                 onClick={(e) => {
                   e.preventDefault();
-                  toast.info("Demo: Use 'user@example.com' and 'password123'");
+                  toast.info("Reset password functionality will be available soon");
                 }}
               >
                 Forgot your password?
@@ -96,14 +105,6 @@ export function LoginForm() {
           >
             Register
           </a>
-        </div>
-        <div className="text-xs text-center text-muted-foreground">
-          <Button variant="link" className="h-auto p-0" onClick={() => {
-            setEmail("user@example.com");
-            setPassword("password123");
-          }}>
-            Use demo account
-          </Button>
         </div>
       </CardFooter>
     </Card>
