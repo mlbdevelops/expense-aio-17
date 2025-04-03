@@ -1,7 +1,7 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export type TransactionCategory = 
   | 'food' 
@@ -56,147 +56,6 @@ interface TransactionStore {
   categorizeWithAI: (description: string) => Promise<TransactionCategory>;
 }
 
-// Sample demo transactions data
-const DEMO_TRANSACTIONS: Transaction[] = [
-  {
-    id: '1',
-    userId: '1',
-    description: 'Grocery shopping at Whole Foods',
-    amount: 89.74,
-    date: '2023-04-01',
-    category: 'food',
-    isIncome: false,
-    notes: 'Weekly grocery run',
-    createdAt: '2023-04-01T10:30:00Z',
-    updatedAt: '2023-04-01T10:30:00Z'
-  },
-  {
-    id: '2',
-    userId: '1',
-    description: 'Monthly rent payment',
-    amount: 1200,
-    date: '2023-04-01',
-    category: 'housing',
-    isIncome: false,
-    createdAt: '2023-04-01T11:00:00Z',
-    updatedAt: '2023-04-01T11:00:00Z'
-  },
-  {
-    id: '3',
-    userId: '1',
-    description: 'Salary deposit',
-    amount: 3500,
-    date: '2023-03-25',
-    category: 'income',
-    isIncome: true,
-    notes: 'Monthly salary',
-    createdAt: '2023-03-25T09:00:00Z',
-    updatedAt: '2023-03-25T09:00:00Z'
-  },
-  {
-    id: '4',
-    userId: '1',
-    description: 'Netflix subscription',
-    amount: 14.99,
-    date: '2023-03-20',
-    category: 'entertainment',
-    isIncome: false,
-    createdAt: '2023-03-20T15:30:00Z',
-    updatedAt: '2023-03-20T15:30:00Z'
-  },
-  {
-    id: '5',
-    userId: '1',
-    description: 'Gas station fill-up',
-    amount: 45.67,
-    date: '2023-03-18',
-    category: 'transportation',
-    isIncome: false,
-    createdAt: '2023-03-18T18:00:00Z',
-    updatedAt: '2023-03-18T18:00:00Z'
-  },
-  {
-    id: '6',
-    userId: '1',
-    description: 'Dinner at Italian restaurant',
-    amount: 87.50,
-    date: '2023-03-15',
-    category: 'food',
-    isIncome: false,
-    notes: 'Date night',
-    createdAt: '2023-03-15T20:30:00Z',
-    updatedAt: '2023-03-15T20:30:00Z'
-  },
-  {
-    id: '7',
-    userId: '1',
-    description: 'Electric bill payment',
-    amount: 124.33,
-    date: '2023-03-10',
-    category: 'utilities',
-    isIncome: false,
-    createdAt: '2023-03-10T14:45:00Z',
-    updatedAt: '2023-03-10T14:45:00Z'
-  },
-  {
-    id: '8',
-    userId: '1',
-    description: 'Freelance project payment',
-    amount: 750,
-    date: '2023-03-08',
-    category: 'income',
-    isIncome: true,
-    notes: 'Website design project',
-    createdAt: '2023-03-08T11:15:00Z',
-    updatedAt: '2023-03-08T11:15:00Z'
-  },
-  {
-    id: '9',
-    userId: '1',
-    description: 'New laptop purchase',
-    amount: 1299.99,
-    date: '2023-03-05',
-    category: 'shopping',
-    isIncome: false,
-    notes: 'For work',
-    createdAt: '2023-03-05T16:20:00Z',
-    updatedAt: '2023-03-05T16:20:00Z'
-  },
-  {
-    id: '10',
-    userId: '1',
-    description: 'Doctor\'s appointment',
-    amount: 40,
-    date: '2023-03-02',
-    category: 'healthcare',
-    isIncome: false,
-    createdAt: '2023-03-02T09:30:00Z',
-    updatedAt: '2023-03-02T09:30:00Z'
-  },
-  {
-    id: '11',
-    userId: '2',
-    description: 'Monthly rent',
-    amount: 1400,
-    date: '2023-04-01',
-    category: 'housing',
-    isIncome: false,
-    createdAt: '2023-04-01T08:00:00Z',
-    updatedAt: '2023-04-01T08:00:00Z'
-  },
-  {
-    id: '12',
-    userId: '2',
-    description: 'Salary',
-    amount: 4200,
-    date: '2023-03-28',
-    category: 'income',
-    isIncome: true,
-    createdAt: '2023-03-28T10:00:00Z',
-    updatedAt: '2023-03-28T10:00:00Z'
-  }
-];
-
 export const useTransactionStore = create<TransactionStore>()(
   persist(
     (set, get) => ({
@@ -206,16 +65,32 @@ export const useTransactionStore = create<TransactionStore>()(
       fetchTransactions: async (userId: string) => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 800));
+          const { data, error } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('date', { ascending: false });
           
-          // Filter transactions for the current user
-          const userTransactions = DEMO_TRANSACTIONS.filter(t => t.userId === userId);
-          set({ transactions: userTransactions });
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to fetch transactions';
+          if (error) {
+            // If the error is about the relation not existing, it might be because the table doesn't exist yet
+            if (error.message.includes("relation") && error.message.includes("does not exist")) {
+              console.warn("Transactions table doesn't exist yet. Using demo data.");
+              await createTransactionsTable();
+              set({ transactions: mapDemoTransactions(userId) });
+            } else {
+              throw error;
+            }
+          } else {
+            // Map the database format to our app format
+            const mappedTransactions = data.map(mapDbTransactionToAppTransaction);
+            set({ transactions: mappedTransactions });
+          }
+        } catch (error: any) {
+          const errorMessage = error.message || 'Failed to fetch transactions';
+          console.error(errorMessage);
           set({ error: errorMessage });
-          toast.error(errorMessage);
+          // Use demo data as fallback
+          set({ transactions: mapDemoTransactions(userId) });
         } finally {
           set({ isLoading: false });
         }
@@ -223,23 +98,38 @@ export const useTransactionStore = create<TransactionStore>()(
       addTransaction: async (transactionData) => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 600));
+          // First check if the table exists and create it if not
+          await ensureTransactionsTableExists();
           
-          const newTransaction: Transaction = {
-            ...transactionData,
-            id: Math.random().toString(36).substring(2, 9),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+          // Map app transaction to db transaction format
+          const dbTransaction = {
+            user_id: transactionData.userId,
+            description: transactionData.description,
+            amount: transactionData.amount,
+            date: transactionData.date,
+            category: transactionData.category,
+            is_income: transactionData.isIncome,
+            notes: transactionData.notes || null,
           };
           
+          const { data, error } = await supabase
+            .from('transactions')
+            .insert(dbTransaction)
+            .select()
+            .single();
+          
+          if (error) throw error;
+          
+          // Map the returned DB transaction to our app format
+          const newTransaction = mapDbTransactionToAppTransaction(data);
+          
           set(state => ({
-            transactions: [...state.transactions, newTransaction]
+            transactions: [newTransaction, ...state.transactions]
           }));
           
           toast.success('Transaction added successfully');
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to add transaction';
+        } catch (error: any) {
+          const errorMessage = error.message || 'Failed to add transaction';
           set({ error: errorMessage });
           toast.error(errorMessage);
         } finally {
@@ -249,24 +139,39 @@ export const useTransactionStore = create<TransactionStore>()(
       updateTransaction: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 600));
+          // Map app transaction updates to db format
+          const dbUpdates: any = {};
+          if (updates.description !== undefined) dbUpdates.description = updates.description;
+          if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+          if (updates.date !== undefined) dbUpdates.date = updates.date;
+          if (updates.category !== undefined) dbUpdates.category = updates.category;
+          if (updates.isIncome !== undefined) dbUpdates.is_income = updates.isIncome;
+          if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+          
+          const { data, error } = await supabase
+            .from('transactions')
+            .update({
+              ...dbUpdates,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', id)
+            .select()
+            .single();
+          
+          if (error) throw error;
+          
+          // Map the returned DB transaction to our app format
+          const updatedTransaction = mapDbTransactionToAppTransaction(data);
           
           set(state => ({
             transactions: state.transactions.map(transaction => 
-              transaction.id === id 
-                ? { 
-                    ...transaction, 
-                    ...updates, 
-                    updatedAt: new Date().toISOString() 
-                  } 
-                : transaction
+              transaction.id === id ? updatedTransaction : transaction
             )
           }));
           
           toast.success('Transaction updated successfully');
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to update transaction';
+        } catch (error: any) {
+          const errorMessage = error.message || 'Failed to update transaction';
           set({ error: errorMessage });
           toast.error(errorMessage);
         } finally {
@@ -276,16 +181,20 @@ export const useTransactionStore = create<TransactionStore>()(
       deleteTransaction: async (id) => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 600));
+          const { error } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('id', id);
+          
+          if (error) throw error;
           
           set(state => ({
             transactions: state.transactions.filter(transaction => transaction.id !== id)
           }));
           
           toast.success('Transaction deleted successfully');
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to delete transaction';
+        } catch (error: any) {
+          const errorMessage = error.message || 'Failed to delete transaction';
           set({ error: errorMessage });
           toast.error(errorMessage);
         } finally {
@@ -294,7 +203,7 @@ export const useTransactionStore = create<TransactionStore>()(
       },
       categorizeWithAI: async (description: string) => {
         try {
-          // Simulate AI categorization with predefined mappings
+          // Simple AI categorization with predefined mappings
           const lowerDesc = description.toLowerCase();
           
           // Create a mapping of keywords to categories
@@ -403,7 +312,209 @@ export const useTransactionStore = create<TransactionStore>()(
       }
     }),
     {
-      name: 'transaction-storage'
+      name: 'transaction-storage',
+      partialize: (state) => ({ transactions: state.transactions })
     }
   )
 );
+
+// Helper functions
+async function ensureTransactionsTableExists() {
+  try {
+    // Try to select from the table to check if it exists
+    const { error } = await supabase.from('transactions').select('id').limit(1);
+    
+    if (error && error.message.includes("relation") && error.message.includes("does not exist")) {
+      return await createTransactionsTable();
+    }
+    
+    return true; // Table exists
+  } catch (error) {
+    console.error('Error checking transactions table:', error);
+    return false;
+  }
+}
+
+async function createTransactionsTable() {
+  try {
+    // Create the transactions table using SQL
+    const { error } = await supabase.rpc('create_transactions_table');
+    
+    if (error) {
+      console.error('Failed to create transactions table:', error);
+      return false;
+    }
+    
+    console.log('Transactions table created successfully');
+    return true;
+  } catch (error) {
+    console.error('Error creating transactions table:', error);
+    return false;
+  }
+}
+
+// Maps a database transaction to our app format
+function mapDbTransactionToAppTransaction(dbTransaction: any): Transaction {
+  return {
+    id: dbTransaction.id,
+    userId: dbTransaction.user_id,
+    description: dbTransaction.description,
+    amount: dbTransaction.amount,
+    date: dbTransaction.date,
+    category: dbTransaction.category as TransactionCategory,
+    isIncome: dbTransaction.is_income,
+    notes: dbTransaction.notes,
+    createdAt: dbTransaction.created_at,
+    updatedAt: dbTransaction.updated_at
+  };
+}
+
+// Demo transactions data to use as fallback
+function mapDemoTransactions(userId: string): Transaction[] {
+  const DEMO_TRANSACTIONS = [
+    {
+      id: '1',
+      userId: userId,
+      description: 'Grocery shopping at Whole Foods',
+      amount: 89.74,
+      date: '2023-04-01',
+      category: 'food' as TransactionCategory,
+      isIncome: false,
+      notes: 'Weekly grocery run',
+      createdAt: '2023-04-01T10:30:00Z',
+      updatedAt: '2023-04-01T10:30:00Z'
+    },
+    {
+      id: '2',
+      userId: userId,
+      description: 'Monthly rent payment',
+      amount: 1200,
+      date: '2023-04-01',
+      category: 'housing' as TransactionCategory,
+      isIncome: false,
+      notes: '',
+      createdAt: '2023-04-01T11:00:00Z',
+      updatedAt: '2023-04-01T11:00:00Z'
+    },
+    {
+      id: '3',
+      userId: userId,
+      description: 'Salary deposit',
+      amount: 3500,
+      date: '2023-03-25',
+      category: 'income' as TransactionCategory,
+      isIncome: true,
+      notes: 'Monthly salary',
+      createdAt: '2023-03-25T09:00:00Z',
+      updatedAt: '2023-03-25T09:00:00Z'
+    },
+    {
+      id: '4',
+      userId: userId,
+      description: 'Netflix subscription',
+      amount: 14.99,
+      date: '2023-03-20',
+      category: 'entertainment' as TransactionCategory,
+      isIncome: false,
+      notes: '',
+      createdAt: '2023-03-20T15:30:00Z',
+      updatedAt: '2023-03-20T15:30:00Z'
+    },
+    {
+      id: '5',
+      userId: userId,
+      description: 'Gas station fill-up',
+      amount: 45.67,
+      date: '2023-03-18',
+      category: 'transportation' as TransactionCategory,
+      isIncome: false,
+      notes: '',
+      createdAt: '2023-03-18T18:00:00Z',
+      updatedAt: '2023-03-18T18:00:00Z'
+    },
+    {
+      id: '6',
+      userId: userId,
+      description: 'Dinner at Italian restaurant',
+      amount: 87.50,
+      date: '2023-03-15',
+      category: 'food' as TransactionCategory,
+      isIncome: false,
+      notes: 'Date night',
+      createdAt: '2023-03-15T20:30:00Z',
+      updatedAt: '2023-03-15T20:30:00Z'
+    },
+    {
+      id: '7',
+      userId: userId,
+      description: 'Electric bill payment',
+      amount: 124.33,
+      date: '2023-03-10',
+      category: 'utilities' as TransactionCategory,
+      isIncome: false,
+      notes: '',
+      createdAt: '2023-03-10T14:45:00Z',
+      updatedAt: '2023-03-10T14:45:00Z'
+    },
+    {
+      id: '8',
+      userId: userId,
+      description: 'Freelance project payment',
+      amount: 750,
+      date: '2023-03-08',
+      category: 'income' as TransactionCategory,
+      isIncome: true,
+      notes: 'Website design project',
+      createdAt: '2023-03-08T11:15:00Z',
+      updatedAt: '2023-03-08T11:15:00Z'
+    },
+    {
+      id: '9',
+      userId: userId,
+      description: 'New laptop purchase',
+      amount: 1299.99,
+      date: '2023-03-05',
+      category: 'shopping' as TransactionCategory,
+      isIncome: false,
+      notes: 'For work',
+      createdAt: '2023-03-05T16:20:00Z',
+      updatedAt: '2023-03-05T16:20:00Z'
+    },
+    {
+      id: '10',
+      userId: userId,
+      description: 'Doctor\'s appointment',
+      amount: 40,
+      date: '2023-03-02',
+      category: 'healthcare' as TransactionCategory,
+      isIncome: false,
+      notes: '',
+      createdAt: '2023-03-02T09:30:00Z',
+      updatedAt: '2023-03-02T09:30:00Z'
+    },
+    {
+      id: '11',
+      userId: userId,
+      description: 'Monthly rent',
+      amount: 1400,
+      date: '2023-04-01',
+      category: 'housing' as TransactionCategory,
+      isIncome: false,
+      createdAt: '2023-04-01T08:00:00Z',
+      updatedAt: '2023-04-01T08:00:00Z'
+    },
+    {
+      id: '12',
+      userId: userId,
+      description: 'Salary',
+      amount: 4200,
+      date: '2023-03-28',
+      category: 'income' as TransactionCategory,
+      isIncome: true,
+      createdAt: '2023-03-28T10:00:00Z',
+      updatedAt: '2023-03-28T10:00:00Z'
+    }
+  ];
+  
+  return DEMO_TRANSACTIONS;
+}

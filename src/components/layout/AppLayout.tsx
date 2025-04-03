@@ -1,230 +1,214 @@
 
-import { useState, useEffect } from "react";
-import { Outlet, Navigate, useLocation, Link } from "react-router-dom";
-import { useAuthStore } from "../../lib/auth";
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/lib/auth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useNavigate, Link, Outlet, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
-  CreditCard,
-  PieChart,
-  BarChart4,
-  Settings,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { 
+  LayoutDashboard, 
+  Wallet, 
+  PieChart, 
+  Receipt, 
+  Settings, 
+  Menu, 
+  X, 
   LogOut,
-  Menu,
-  X,
-  Sun,
-  Moon,
-  User,
+  User
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { useTheme } from "../ThemeProvider";
-import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-
-interface NavItemProps {
-  to: string;
-  icon: React.ReactNode;
-  label: string;
-  isCollapsed: boolean;
-  isActive: boolean;
-}
-
-function NavItem({ to, icon, label, isCollapsed, isActive }: NavItemProps) {
-  return (
-    <TooltipProvider delayDuration={0}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Link
-            to={to}
-            className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-              isActive
-                ? "bg-expense-primary text-white"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <div className="shrink-0">
-              {icon}
-            </div>
-            {!isCollapsed && <span>{label}</span>}
-          </Link>
-        </TooltipTrigger>
-        {isCollapsed && (
-          <TooltipContent side="right">
-            {label}
-          </TooltipContent>
-        )}
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
+import { useEffect, useState } from "react";
+import { useMobileView } from "@/hooks/use-mobile";
 
 export function AppLayout() {
-  const { isAuthenticated, user, logout } = useAuthStore();
-  const { theme, setTheme } = useTheme();
+  const { user, profile, isAuthenticated, logout } = useAuthStore();
+  const navigate = useNavigate();
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const isMobile = useMobileView();
 
-  // Check screen size on mount and resize
+  // Check if the user is authenticated
   useEffect(() => {
-    const checkScreenSize = () => {
-      setIsCollapsed(window.innerWidth < 1024);
-      if (window.innerWidth >= 768) {
-        setIsMobileMenuOpen(false);
-      }
-    };
+    if (!isAuthenticated) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, navigate]);
 
-    checkScreenSize();
-    window.addEventListener("resize", checkScreenSize);
-    return () => window.removeEventListener("resize", checkScreenSize);
-  }, []);
-
-  if (!isAuthenticated) {
-    return <Navigate to="/" />;
-  }
-
-  const isActive = (path: string) => {
-    return location.pathname === path;
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
   };
 
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
+
+  // Navigation items with icons
   const navItems = [
     {
-      to: "/dashboard",
-      icon: <LayoutDashboard size={20} />,
       label: "Dashboard",
+      icon: <LayoutDashboard className="h-5 w-5" />,
+      href: "/dashboard"
     },
     {
-      to: "/transactions",
-      icon: <CreditCard size={20} />,
       label: "Transactions",
+      icon: <Receipt className="h-5 w-5" />,
+      href: "/transactions"
     },
     {
-      to: "/budgets",
-      icon: <PieChart size={20} />,
       label: "Budgets",
+      icon: <Wallet className="h-5 w-5" />,
+      href: "/budgets"
     },
     {
-      to: "/reports",
-      icon: <BarChart4 size={20} />,
       label: "Reports",
+      icon: <PieChart className="h-5 w-5" />,
+      href: "/reports"
     },
     {
-      to: "/settings",
-      icon: <Settings size={20} />,
       label: "Settings",
-    },
+      icon: <Settings className="h-5 w-5" />,
+      href: "/settings"
+    }
   ];
 
-  const renderNav = () => (
-    <div className="flex flex-col justify-between h-full">
-      <div className="space-y-4 py-4">
-        <div className="px-3 py-2">
-          <h2 className={cn(
-            "flex items-center gap-2 text-lg font-semibold tracking-tight expense-gradient-text",
-            isCollapsed && "justify-center"
-          )}>
-            {!isCollapsed && "ExpenseAI"}
-            <PieChart className={cn(isCollapsed ? "h-6 w-6" : "h-5 w-5")} />
-          </h2>
-        </div>
-        <div className="space-y-1 px-3">
-          {navItems.map((item) => (
-            <NavItem
-              key={item.to}
-              to={item.to}
-              icon={item.icon}
-              label={item.label}
-              isCollapsed={isCollapsed}
-              isActive={isActive(item.to)}
-            />
-          ))}
-        </div>
-      </div>
-      
-      <div className="p-3 mt-auto space-y-4">
-        <div className={cn(
-          "flex items-center gap-2",
-          isCollapsed ? "justify-center" : "px-2"
-        )}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            aria-label="Toggle theme"
-          >
-            {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={logout}
-            aria-label="Logout"
-          >
-            <LogOut size={18} />
-          </Button>
-
-          {!isCollapsed && (
-            <div className="flex items-center gap-2 rounded-md px-2 py-2 ml-auto">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.avatar} alt={user?.name} />
-                <AvatarFallback className="bg-expense-primary text-white">
-                  {user?.name?.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  // If not authenticated, don't render the app layout
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar - desktop */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 z-20 hidden bg-background border-r md:flex md:flex-col",
-          isCollapsed ? "w-[70px]" : "w-[240px]"
-        )}
-      >
-        {renderNav()}
+    <div className="flex h-screen bg-background overflow-hidden">
+      {/* Sidebar for desktop */}
+      <aside className={`bg-accent/40 w-64 flex-shrink-0 border-r hidden md:flex flex-col`}>
+        <div className="p-4 border-b">
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <Wallet className="h-6 w-6 text-expense-primary" />
+            <span className="font-bold text-xl">ExpenseAI</span>
+          </Link>
+        </div>
+        <nav className="flex-1 p-4 space-y-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              to={item.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+                location.pathname === item.href
+                  ? "bg-expense-primary text-white"
+                  : "hover:bg-accent"
+              }`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="w-full justify-start gap-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile?.avatar || ""} />
+                  <AvatarFallback>
+                    {profile?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="truncate">{profile?.name || user?.email}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/settings")}>
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </aside>
 
-      {/* Mobile navbar */}
-      <div className="md:hidden fixed inset-x-0 top-0 z-20 bg-background border-b">
-        <div className="flex items-center justify-between h-16 px-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold tracking-tight expense-gradient-text">
-              ExpenseAI
-            </h2>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+      {/* Mobile header */}
+      <header className="md:hidden fixed top-0 left-0 right-0 bg-background z-10 border-b">
+        <div className="flex items-center justify-between p-4">
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <Wallet className="h-6 w-6 text-expense-primary" />
+            <span className="font-bold text-xl">ExpenseAI</span>
+          </Link>
+          <Button variant="ghost" size="icon" onClick={toggleMobileMenu}>
+            {isMobileMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Mobile menu */}
+      {/* Mobile navigation menu */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-10 bg-background md:hidden pt-16">
-          {renderNav()}
+        <div className="md:hidden fixed inset-0 bg-background z-30 pt-16">
+          <nav className="p-4 space-y-2">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+                  location.pathname === item.href
+                    ? "bg-expense-primary text-white"
+                    : "hover:bg-accent"
+                }`}
+                onClick={closeMobileMenu}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </Link>
+            ))}
+            <div className="mt-8 pt-4 border-t">
+              <div className="flex items-center gap-3 px-4 py-2">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={profile?.avatar || ""} />
+                  <AvatarFallback>
+                    {profile?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="font-medium">{profile?.name || "User"}</div>
+                  <div className="text-sm text-muted-foreground truncate">
+                    {user?.email}
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2 mt-2 px-4"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-5 w-5" />
+                Logout
+              </Button>
+            </div>
+          </nav>
         </div>
       )}
 
       {/* Main content */}
-      <main
-        className={cn(
-          "flex-1 overflow-y-auto pt-16 md:pt-0",
-          isCollapsed ? "md:ml-[70px]" : "md:ml-[240px]"
-        )}
-      >
-        <div className="container max-w-7xl pb-12 p-4 md:p-6 lg:p-8">
+      <main className="flex-1 flex flex-col overflow-hidden pt-0 md:pt-0">
+        {/* Content area */}
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-6 pt-20 md:pt-6">
           <Outlet />
         </div>
       </main>

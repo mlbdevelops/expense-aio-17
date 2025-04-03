@@ -10,7 +10,7 @@ import { useBudgetStore } from "@/lib/budgets";
 import { useEffect } from "react";
 
 const Dashboard = () => {
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { transactions, fetchTransactions, isLoading: isLoadingTransactions } = useTransactionStore();
   const { budgets, fetchBudgets, isLoading: isLoadingBudgets } = useBudgetStore();
   
@@ -26,7 +26,7 @@ const Dashboard = () => {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, {user?.name}! Here's an overview of your finances.
+          Welcome back, {profile?.name || 'User'}! Here's an overview of your finances.
         </p>
       </div>
 
