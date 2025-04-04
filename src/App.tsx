@@ -14,6 +14,7 @@ import { useAuthStore } from "./lib/auth";
 import Budgets from "./pages/Budgets";
 import Transactions from "./pages/Transactions";
 import BudgetSummary from "./pages/BudgetSummary";
+import SavingsGoals from "./pages/SavingsGoals";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => {
                 <Route path="/budgets" element={<Budgets />} />
                 <Route path="/transactions" element={<Transactions />} />
                 <Route path="/budget-summary" element={<BudgetSummary />} />
+                <Route path="/savings-goals" element={<SavingsGoals />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               

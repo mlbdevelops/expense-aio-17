@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,7 +19,8 @@ import {
   User,
   CreditCard,
   ArrowDownUp,
-  PieChart
+  PieChart,
+  Target
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useMobileView } from "@/hooks/use-mobile";
@@ -52,7 +52,7 @@ export function AppLayout() {
     setIsMobileMenuOpen(false);
   };
 
-  // Navigation items with icons
+  // Navigation items with icons - adding the Savings Goals page
   const navItems = [
     {
       label: "Dashboard",
@@ -73,6 +73,11 @@ export function AppLayout() {
       label: "Budget Summary",
       icon: <PieChart className="h-5 w-5" />,
       href: "/budget-summary"
+    },
+    {
+      label: "Savings Goals",
+      icon: <Target className="h-5 w-5" />,
+      href: "/savings-goals"
     },
     {
       label: "Settings",

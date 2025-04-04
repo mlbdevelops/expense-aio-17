@@ -4,9 +4,10 @@ import { useAuthStore } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client-extended";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { Loader2, PlusCircle, ArrowUpCircle, ArrowDownCircle, CreditCard, PieChart } from "lucide-react";
+import { Loader2, PlusCircle, ArrowUpCircle, ArrowDownCircle, CreditCard, PieChart, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { Progress } from "@/components/ui/progress";
 
 // Define types for our data
 type Transaction = {
@@ -25,10 +26,19 @@ type Budget = {
   period: string;
 };
 
+type SavingsGoal = {
+  id: string;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  target_date: string | null;
+};
+
 const Dashboard = () => {
   const { profile } = useAuthStore();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
@@ -73,11 +83,30 @@ const Dashboard = () => {
         setAvailableBudget(totalBudget - totalExpense);
       }
       
+      // Fetch savings goals
+      const { data: savingsGoalsData, error: savingsGoalsError } = await supabase
+        .from('savings_goals')
+        .select('*')
+        .limit(3);
+        
+      if (savingsGoalsError) {
+        console.error('Error fetching savings goals:', savingsGoalsError);
+      } else {
+        setSavingsGoals(savingsGoalsData || []);
+      }
+      
       setIsLoading(false);
     };
     
     fetchData();
   }, []);
+  
+  // Calculate progress percentage for savings goals
+  const calculateProgress = (current: number, target: number) => {
+    if (target <= 0) return 0;
+    const progress = (current / target) * 100;
+    return Math.min(progress, 100); // Cap at 100%
+  };
   
   return (
     <div className="space-y-6">
@@ -208,6 +237,41 @@ const Dashboard = () => {
                         <p className="text-sm text-muted-foreground">{budget.period}</p>
                       </div>
                       <div className="font-medium">{formatCurrency(budget.amount)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Savings Goals */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Savings Goals</CardTitle>
+                <CardDescription>Progress towards your financial targets</CardDescription>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/savings-goals">
+                  <Target className="mr-2 h-4 w-4" />
+                  View All Goals
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {savingsGoals.length === 0 ? (
+                <p className="text-center py-4 text-muted-foreground">No savings goals created yet. Set your first financial goal!</p>
+              ) : (
+                <div className="space-y-4">
+                  {savingsGoals.map((goal) => (
+                    <div key={goal.id} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <p className="font-medium">{goal.name}</p>
+                        <p className="text-sm">
+                          {formatCurrency(goal.current_amount)} / {formatCurrency(goal.target_amount)}
+                        </p>
+                      </div>
+                      <Progress value={calculateProgress(goal.current_amount, goal.target_amount)} className="h-2" />
                     </div>
                   ))}
                 </div>
