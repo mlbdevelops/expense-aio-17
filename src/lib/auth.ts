@@ -47,12 +47,15 @@ export const useAuthStore = create<AuthStore>()(
           set({ 
             user: data.user, 
             session: data.session,
-            isAuthenticated: true 
+            isAuthenticated: !!data.session
           });
           
           // Fetch the user's profile
           if (data.user) {
-            await get().refreshProfile();
+            // Use setTimeout to avoid Supabase auth deadlocks
+            setTimeout(() => {
+              get().refreshProfile();
+            }, 0);
           }
           
           toast.success('Logged in successfully');
@@ -88,7 +91,10 @@ export const useAuthStore = create<AuthStore>()(
           
           // If user was created and we have a session, refresh the profile
           if (data.user && data.session) {
-            await get().refreshProfile();
+            // Use setTimeout to avoid Supabase auth deadlocks
+            setTimeout(() => {
+              get().refreshProfile();
+            }, 0);
           }
           
           toast.success('Account created successfully');
@@ -150,23 +156,8 @@ export const useAuthStore = create<AuthStore>()(
 
 // Set up auth state listener
 if (typeof window !== 'undefined') {
-  // Check for existing session
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session) {
-      const authStore = useAuthStore.getState();
-      authStore.refreshProfile();
-      useAuthStore.setState({ 
-        user: session.user, 
-        session: session,
-        isAuthenticated: true 
-      });
-    }
-  });
-
-  // Listen for auth changes
+  // Set up auth state listener FIRST
   supabase.auth.onAuthStateChange((event, session) => {
-    const authStore = useAuthStore.getState();
-    
     if (event === 'SIGNED_IN' && session) {
       useAuthStore.setState({ 
         user: session.user, 
@@ -176,7 +167,7 @@ if (typeof window !== 'undefined') {
       
       // Use setTimeout to avoid Supabase auth deadlocks
       setTimeout(() => {
-        authStore.refreshProfile();
+        useAuthStore.getState().refreshProfile();
       }, 0);
     }
     
@@ -187,6 +178,22 @@ if (typeof window !== 'undefined') {
         session: null,
         isAuthenticated: false 
       });
+    }
+  });
+  
+  // THEN check for existing session
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) {
+      useAuthStore.setState({ 
+        user: session.user, 
+        session: session,
+        isAuthenticated: true 
+      });
+      
+      // Use setTimeout to avoid Supabase auth deadlocks
+      setTimeout(() => {
+        useAuthStore.getState().refreshProfile();
+      }, 0);
     }
   });
 }
