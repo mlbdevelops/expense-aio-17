@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client-extended";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -287,7 +288,12 @@ const BudgetSummary = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} />
                     <YAxis tickFormatter={(value) => formatCurrency(value).replace('$', '')} />
-                    <Tooltip formatter={(value) => formatCurrency(value)} />
+                    <Tooltip 
+                      formatter={(value) => {
+                        // Fix: Ensure value is treated as a number
+                        return formatCurrency(typeof value === 'string' ? parseFloat(value) : value);
+                      }} 
+                    />
                     <Legend />
                     <Bar dataKey="budgeted" name="Budgeted" fill="#0088FE" />
                     <Bar dataKey="spent" name="Spent" fill="#FF8042" />
