@@ -11,6 +11,9 @@ import NotFound from "./pages/NotFound";
 import { AppLayout } from "./components/layout/AppLayout";
 import Settings from "./pages/Settings";
 import { useAuthStore } from "./lib/auth";
+import Budgets from "./pages/Budgets";
+import Transactions from "./pages/Transactions";
+import BudgetSummary from "./pages/BudgetSummary";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +36,9 @@ const App = () => {
               {/* Protected Routes - Wrapped in AppLayout */}
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/budgets" element={<Budgets />} />
+                <Route path="/transactions" element={<Transactions />} />
+                <Route path="/budget-summary" element={<BudgetSummary />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               

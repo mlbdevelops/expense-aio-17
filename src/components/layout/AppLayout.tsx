@@ -17,7 +17,10 @@ import {
   Menu, 
   X, 
   LogOut,
-  User
+  User,
+  CreditCard,
+  ArrowDownUp,
+  PieChart
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useMobileView } from "@/hooks/use-mobile";
@@ -57,6 +60,21 @@ export function AppLayout() {
       href: "/dashboard"
     },
     {
+      label: "Budgets",
+      icon: <CreditCard className="h-5 w-5" />,
+      href: "/budgets"
+    },
+    {
+      label: "Transactions",
+      icon: <ArrowDownUp className="h-5 w-5" />,
+      href: "/transactions"
+    },
+    {
+      label: "Budget Summary",
+      icon: <PieChart className="h-5 w-5" />,
+      href: "/budget-summary"
+    },
+    {
       label: "Settings",
       icon: <Settings className="h-5 w-5" />,
       href: "/settings"
@@ -74,8 +92,8 @@ export function AppLayout() {
       <aside className={`bg-accent/40 w-64 flex-shrink-0 border-r hidden md:flex flex-col`}>
         <div className="p-4 border-b">
           <Link to="/dashboard" className="flex items-center gap-2">
-            <User className="h-6 w-6 text-primary" />
-            <span className="font-bold text-xl">MyApp</span>
+            <CreditCard className="h-6 w-6 text-primary" />
+            <span className="font-bold text-xl">BudgetTracker</span>
           </Link>
         </div>
         <nav className="flex-1 p-4 space-y-1">
@@ -127,8 +145,8 @@ export function AppLayout() {
       <header className="md:hidden fixed top-0 left-0 right-0 bg-background z-10 border-b">
         <div className="flex items-center justify-between p-4">
           <Link to="/dashboard" className="flex items-center gap-2">
-            <User className="h-6 w-6 text-primary" />
-            <span className="font-bold text-xl">MyApp</span>
+            <CreditCard className="h-6 w-6 text-primary" />
+            <span className="font-bold text-xl">BudgetTracker</span>
           </Link>
           <Button variant="ghost" size="icon" onClick={toggleMobileMenu}>
             {isMobileMenuOpen ? (
