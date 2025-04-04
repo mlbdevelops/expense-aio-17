@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client-extended";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { Loader2, PlusCircle, ArrowUpCircle, ArrowDownCircle, CreditCard, PieChart } from "lucide-react";

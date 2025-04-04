@@ -1,6 +1,5 @@
-
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client-extended";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { formatCurrency } from "@/lib/utils";
@@ -133,13 +132,13 @@ const BudgetSummary = () => {
     value,
   }));
   
-  // Custom tooltip for charts
+  // Custom tooltip for charts - fix the ValueType issue
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-background p-2 border rounded shadow-sm">
           <p className="font-medium">{payload[0].name}</p>
-          <p>{formatCurrency(payload[0].value)}</p>
+          <p>{formatCurrency(Number(payload[0].value))}</p>
         </div>
       );
     }
