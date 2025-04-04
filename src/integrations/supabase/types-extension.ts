@@ -44,20 +44,30 @@ export interface ExtendedDatabase extends Database {
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "transactions_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       budget_categories: {
         Row: {
           id: string;
           name: string;
+          created_at: string;
         };
         Insert: {
           id?: string;
           name: string;
+          created_at?: string;
         };
         Update: {
           id?: string;
           name?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -66,16 +76,19 @@ export interface ExtendedDatabase extends Database {
           id: string;
           name: string;
           type: string;
+          created_at: string;
         };
         Insert: {
           id?: string;
           name: string;
           type: string;
+          created_at?: string;
         };
         Update: {
           id?: string;
           name?: string;
           type?: string;
+          created_at?: string;
         };
         Relationships: [];
       };

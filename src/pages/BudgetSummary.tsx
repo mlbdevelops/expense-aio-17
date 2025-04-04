@@ -291,7 +291,7 @@ const BudgetSummary = () => {
                     <Tooltip 
                       formatter={(value) => {
                         // Fix: Ensure value is treated as a number
-                        return formatCurrency(typeof value === 'string' ? parseFloat(value) : value);
+                        return formatCurrency(Number(value));
                       }} 
                     />
                     <Legend />
