@@ -9,10 +9,6 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import { AppLayout } from "./components/layout/AppLayout";
-import Transactions from "./pages/Transactions";
-import TransactionForm from "./pages/TransactionForm";
-import Budgets from "./pages/Budgets";
-import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import { useAuthStore } from "./lib/auth";
 
@@ -37,10 +33,6 @@ const App = () => {
               {/* Protected Routes - Wrapped in AppLayout */}
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/transactions" element={<Transactions />} />
-                <Route path="/transactions/new" element={<TransactionForm />} />
-                <Route path="/budgets" element={<Budgets />} />
-                <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
               

@@ -13,9 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { 
   LayoutDashboard, 
-  Wallet, 
-  PieChart, 
-  Receipt, 
   Settings, 
   Menu, 
   X, 
@@ -60,21 +57,6 @@ export function AppLayout() {
       href: "/dashboard"
     },
     {
-      label: "Transactions",
-      icon: <Receipt className="h-5 w-5" />,
-      href: "/transactions"
-    },
-    {
-      label: "Budgets",
-      icon: <Wallet className="h-5 w-5" />,
-      href: "/budgets"
-    },
-    {
-      label: "Reports",
-      icon: <PieChart className="h-5 w-5" />,
-      href: "/reports"
-    },
-    {
       label: "Settings",
       icon: <Settings className="h-5 w-5" />,
       href: "/settings"
@@ -92,8 +74,8 @@ export function AppLayout() {
       <aside className={`bg-accent/40 w-64 flex-shrink-0 border-r hidden md:flex flex-col`}>
         <div className="p-4 border-b">
           <Link to="/dashboard" className="flex items-center gap-2">
-            <Wallet className="h-6 w-6 text-expense-primary" />
-            <span className="font-bold text-xl">ExpenseAI</span>
+            <User className="h-6 w-6 text-primary" />
+            <span className="font-bold text-xl">MyApp</span>
           </Link>
         </div>
         <nav className="flex-1 p-4 space-y-1">
@@ -103,7 +85,7 @@ export function AppLayout() {
               to={item.href}
               className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
                 location.pathname === item.href
-                  ? "bg-expense-primary text-white"
+                  ? "bg-primary text-white"
                   : "hover:bg-accent"
               }`}
             >
@@ -145,8 +127,8 @@ export function AppLayout() {
       <header className="md:hidden fixed top-0 left-0 right-0 bg-background z-10 border-b">
         <div className="flex items-center justify-between p-4">
           <Link to="/dashboard" className="flex items-center gap-2">
-            <Wallet className="h-6 w-6 text-expense-primary" />
-            <span className="font-bold text-xl">ExpenseAI</span>
+            <User className="h-6 w-6 text-primary" />
+            <span className="font-bold text-xl">MyApp</span>
           </Link>
           <Button variant="ghost" size="icon" onClick={toggleMobileMenu}>
             {isMobileMenuOpen ? (
@@ -168,7 +150,7 @@ export function AppLayout() {
                 to={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
                   location.pathname === item.href
-                    ? "bg-expense-primary text-white"
+                    ? "bg-primary text-white"
                     : "hover:bg-accent"
                 }`}
                 onClick={closeMobileMenu}
