@@ -1,158 +1,177 @@
+
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useAuthStore } from "@/lib/auth";
-import { formatCurrency } from "@/lib/utils";
-import { Loader2, CalendarIcon, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
-import { toast } from "sonner";
-import { DayContentProps } from "react-day-picker";
+import { PlusCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/components/ui/use-toast";
 
-type CalendarTransaction = {
+// Define types
+type FinancialEvent = {
   id: string;
-  date: Date;
-  description: string;
+  title: string;
+  date: Date | string;
   amount: number;
-  type: 'income' | 'expense';
+  category: string;
+  description?: string;
+  is_recurring: boolean;
+  recurrence_interval?: string;
 };
 
-const FinancialCalendar = () => {
-  const { user } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [month, setMonth] = useState<Date>(new Date());
-  const [transactions, setTransactions] = useState<CalendarTransaction[]>([]);
-  const [selectedDateTransactions, setSelectedDateTransactions] = useState<CalendarTransaction[]>([]);
-  
-  // Mock data generator
-  const generateMockTransactions = (month: Date): CalendarTransaction[] => {
-    const transactions: CalendarTransaction[] = [];
-    const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-    
-    // Generate 1-3 transactions for random days in the month
-    for (let i = 1; i <= daysInMonth; i++) {
-      // Randomly decide if this day has transactions (about 40% chance)
-      if (Math.random() < 0.4) {
-        const numTransactions = Math.floor(Math.random() * 3) + 1; // 1-3 transactions
-        const date = new Date(month.getFullYear(), month.getMonth(), i);
-        
-        for (let j = 0; j < numTransactions; j++) {
-          const isIncome = Math.random() < 0.3; // 30% chance of income
-          const transaction: CalendarTransaction = {
-            id: `transaction-${i}-${j}-${month.getMonth()}-${month.getFullYear()}`,
-            date: new Date(date),
-            description: isIncome 
-              ? ['Salary', 'Freelance Payment', 'Investment Return', 'Gift Received'][Math.floor(Math.random() * 4)]
-              : ['Groceries', 'Rent', 'Utilities', 'Dining', 'Shopping', 'Entertainment', 'Transport'][Math.floor(Math.random() * 7)],
-            amount: isIncome 
-              ? Math.floor(Math.random() * 1000) + 500 // Income: $500-$1500
-              : Math.floor(Math.random() * 200) + 50, // Expense: $50-$250
-            type: isIncome ? 'income' : 'expense'
-          };
-          transactions.push(transaction);
-        }
-      }
-    }
-    
-    return transactions;
-  };
+type CalendarView = "month" | "week" | "day";
 
-  // Fetch transactions for the selected month
+const FinancialCalendar = () => {
+  const [events, setEvents] = useState<FinancialEvent[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [isLoading, setIsLoading] = useState(true);
+  const [view, setView] = useState<CalendarView>("month");
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [newEvent, setNewEvent] = useState<Partial<FinancialEvent>>({
+    title: "",
+    date: new Date(),
+    amount: 0,
+    category: "expense",
+    description: "",
+    is_recurring: false,
+    recurrence_interval: "monthly"
+  });
+
+  // Fetch events from the database
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchEvents = async () => {
       setIsLoading(true);
-      
       try {
-        // In a real app, you would fetch data from an API
-        // For this example, we'll simulate a delay and use mock data
-        await new Promise(resolve => setTimeout(resolve, 800));
+        const { data, error } = await supabase
+          .from('financial_events')
+          .select('*');
         
-        const mockTransactions = generateMockTransactions(month);
-        setTransactions(mockTransactions);
-        
-        // Update selected day data if needed
-        if (selectedDate) {
-          updateSelectedDayData(selectedDate, mockTransactions);
+        if (error) {
+          throw error;
         }
+        
+        // Convert date strings to Date objects
+        const formattedEvents = data.map(event => ({
+          ...event,
+          date: new Date(event.date)
+        }));
+        
+        setEvents(formattedEvents);
       } catch (error) {
-        console.error("Error fetching calendar data:", error);
-        toast.error("Failed to load financial calendar data");
+        console.error('Error fetching events:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load events. Please try again later.",
+          variant: "destructive"
+        });
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchData();
-  }, [user, month]);
-  
-  // Update selected day data
-  const updateSelectedDayData = (
-    date: Date,
-    transactionsData: CalendarTransaction[] = transactions
-  ) => {
-    const dayTransactions = transactionsData.filter(
-      (t) => t.date.getDate() === date.getDate() &&
-      t.date.getMonth() === date.getMonth() &&
-      t.date.getFullYear() === date.getFullYear()
-    );
-    setSelectedDateTransactions(dayTransactions);
-  };
+    fetchEvents();
+  }, []);
 
-  // Handle date selection
-  const handleDateSelect = (date: Date | undefined) => {
-    setSelectedDate(date);
-    if (date) {
-      updateSelectedDayData(date);
-    } else {
-      setSelectedDateTransactions([]);
-    }
-  };
-
-  // Handle month change
-  const handleMonthChange = (newMonth: Date) => {
-    setMonth(newMonth);
-  };
-
-  // Get CSS class for days with transactions
-  const getDayClass = (date: Date): string => {
-    const hasTransactions = transactions.some(
-      (t) => t.date.getDate() === date.getDate() &&
-      t.date.getMonth() === date.getMonth() &&
-      t.date.getFullYear() === date.getFullYear()
-    );
-    
-    if (hasTransactions) {
-      // Check if there are any income transactions for this date
-      const hasIncome = transactions.some(
-        (t) => t.date.getDate() === date.getDate() &&
-        t.date.getMonth() === date.getMonth() &&
-        t.date.getFullYear() === date.getFullYear() &&
-        t.type === 'income'
-      );
+  // Handle adding a new event
+  const handleAddEvent = async () => {
+    try {
+      const eventToAdd = {
+        ...newEvent,
+        date: newEvent.date instanceof Date
+          ? newEvent.date.toISOString()
+          : new Date(newEvent.date as string).toISOString()
+      };
       
-      // Check if there are any expense transactions for this date
-      const hasExpense = transactions.some(
-        (t) => t.date.getDate() === date.getDate() &&
-        t.date.getMonth() === date.getMonth() &&
-        t.date.getFullYear() === date.getFullYear() &&
-        t.type === 'expense'
-      );
+      const { data, error } = await supabase
+        .from('financial_events')
+        .insert(eventToAdd)
+        .select();
       
-      if (hasIncome && hasExpense) {
-        return "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-purple-500";
-      } else if (hasIncome) {
-        return "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-green-500";
-      } else {
-        return "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-red-500";
+      if (error) {
+        throw error;
       }
+      
+      // Add new event to state
+      setEvents([...events, { ...data[0], date: new Date(data[0].date) }]);
+      
+      // Reset form and close dialog
+      setNewEvent({
+        title: "",
+        date: new Date(),
+        amount: 0,
+        category: "expense",
+        description: "",
+        is_recurring: false,
+        recurrence_interval: "monthly"
+      });
+      setIsAddEventOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Event added successfully.",
+      });
+    } catch (error) {
+      console.error('Error adding event:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add event. Please try again.",
+        variant: "destructive"
+      });
     }
-    
-    return "";
   };
 
-  // Custom day content renderer for the calendar
-  const renderDayContent = (props: DayContentProps) => {
+  // Handle form input changes
+  const handleInputChange = (field: string, value: string | number | boolean | Date) => {
+    setNewEvent({
+      ...newEvent,
+      [field]: value
+    });
+  };
+
+  // Get events for the selected date
+  const getEventsForDate = (date: Date) => {
+    return events.filter(event => {
+      const eventDate = event.date instanceof Date
+        ? event.date
+        : new Date(event.date as string);
+      
+      return eventDate.getDate() === date.getDate() &&
+        eventDate.getMonth() === date.getMonth() &&
+        eventDate.getFullYear() === date.getFullYear();
+    });
+  };
+
+  // Get CSS class for calendar days based on events
+  const getDayClass = (date: Date) => {
+    const eventsForDate = getEventsForDate(date);
+    
+    if (eventsForDate.length === 0) {
+      return "relative";
+    }
+    
+    const hasExpense = eventsForDate.some(event => event.category === "expense");
+    const hasIncome = eventsForDate.some(event => event.category === "income");
+    
+    if (hasExpense && hasIncome) {
+      return "relative bg-amber-100 dark:bg-amber-950/30";
+    } else if (hasExpense) {
+      return "relative bg-red-100 dark:bg-red-950/30";
+    } else if (hasIncome) {
+      return "relative bg-green-100 dark:bg-green-950/30";
+    }
+    
+    return "relative";
+  };
+
+  // Custom day component for the calendar
+  const Day = (props: React.ComponentProps<typeof Calendar.Day>) => {
     const customClass = getDayClass(props.date);
     return (
       <div className={customClass}>
@@ -161,149 +180,288 @@ const FinancialCalendar = () => {
     );
   };
 
-  const totalIncome = selectedDateTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-    
-  const totalExpense = selectedDateTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
-  
-  const netAmount = totalIncome - totalExpense;
+  // Filter events based on the selected date
+  const selectedDateEvents = getEventsForDate(selectedDate);
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <h1 className="text-3xl font-bold mb-4">Financial Calendar</h1>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Financial Calendar</h1>
+        <p className="text-muted-foreground">
+          Track your financial events and recurring transactions
+        </p>
+      </div>
+
+      <Tabs defaultValue="calendar" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+          <TabsTrigger value="list">List View</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="calendar" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setView("month")}
+                className={view === "month" ? "bg-primary text-primary-foreground" : ""}
+              >
+                Month
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setView("week")}
+                className={view === "week" ? "bg-primary text-primary-foreground" : ""}
+              >
+                Week
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setView("day")}
+                className={view === "day" ? "bg-primary text-primary-foreground" : ""}
+              >
+                Day
+              </Button>
+            </div>
+            
+            <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Event
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Financial Event</DialogTitle>
+                  <DialogDescription>
+                    Create a new financial event or reminder.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="title" className="text-right">
+                      Title
+                    </Label>
+                    <Input
+                      id="title"
+                      value={newEvent.title}
+                      onChange={(e) => handleInputChange("title", e.target.value)}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="amount" className="text-right">
+                      Amount
+                    </Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      value={newEvent.amount}
+                      onChange={(e) => handleInputChange("amount", parseFloat(e.target.value))}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="category" className="text-right">
+                      Category
+                    </Label>
+                    <Select
+                      value={newEvent.category}
+                      onValueChange={(value) => handleInputChange("category", value)}
+                    >
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="expense">Expense</SelectItem>
+                        <SelectItem value="income">Income</SelectItem>
+                        <SelectItem value="transfer">Transfer</SelectItem>
+                        <SelectItem value="reminder">Reminder</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="description" className="text-right">
+                      Description
+                    </Label>
+                    <Input
+                      id="description"
+                      value={newEvent.description}
+                      onChange={(e) => handleInputChange("description", e.target.value)}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">Recurring?</Label>
+                    <div className="flex items-center space-x-2 col-span-3">
+                      <Switch
+                        checked={newEvent.is_recurring}
+                        onCheckedChange={(checked) => handleInputChange("is_recurring", checked)}
+                      />
+                      <Label>This is a recurring event</Label>
+                    </div>
+                  </div>
+                  {newEvent.is_recurring && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="recurrence" className="text-right">
+                        Recurrence
+                      </Label>
+                      <Select
+                        value={newEvent.recurrence_interval}
+                        onValueChange={(value) => handleInputChange("recurrence_interval", value)}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Select recurrence" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="yearly">Yearly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleAddEvent}>Add Event</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>Calendar</CardTitle>
+                  <CardDescription>
+                    View and manage your financial events
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => date && setSelectedDate(date)}
+                    className="rounded-md border"
+                    components={{
+                      Day
+                    }}
+                  />
+                  <div className="mt-4 flex gap-2 text-sm">
+                    <div className="flex items-center">
+                      <div className="mr-1 h-3 w-3 rounded-full bg-green-100 dark:bg-green-950/30"></div>
+                      <span>Income</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="mr-1 h-3 w-3 rounded-full bg-red-100 dark:bg-red-950/30"></div>
+                      <span>Expense</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="mr-1 h-3 w-3 rounded-full bg-amber-100 dark:bg-amber-950/30"></div>
+                      <span>Both</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Events for {format(selectedDate, "MMMM d, yyyy")}</CardTitle>
+                  <CardDescription>
+                    {selectedDateEvents.length} events scheduled
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {selectedDateEvents.length === 0 ? (
+                    <p className="text-center py-4 text-muted-foreground">No events scheduled for this day</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {selectedDateEvents.map((event) => (
+                        <div key={event.id} className="flex items-center justify-between border-b pb-2">
+                          <div>
+                            <p className="font-medium">{event.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {event.description || event.category}
+                              {event.is_recurring && ` • Recurring ${event.recurrence_interval}`}
+                            </p>
+                          </div>
+                          <div className={`font-medium ${
+                            event.category === "income" ? "text-green-600" : 
+                            event.category === "expense" ? "text-red-600" : 
+                            "text-blue-600"
+                          }`}>
+                            {event.category === "income" ? "+" : 
+                             event.category === "expense" ? "-" : ""}
+                            ${event.amount.toFixed(2)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="list" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Financial Events</CardTitle>
+              <CardTitle>All Financial Events</CardTitle>
               <CardDescription>
-                Track your income and expenses throughout the month
+                A comprehensive list of all your financial events
               </CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="flex justify-center items-center h-[400px]">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <div className="flex justify-center p-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
+              ) : events.length === 0 ? (
+                <p className="text-center py-4 text-muted-foreground">No events found</p>
               ) : (
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDateSelect}
-                  onMonthChange={handleMonthChange}
-                  className="rounded-md border"
-                  components={{
-                    DayContent: renderDayContent
-                  }}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div>
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>
-                  {selectedDate ? (
-                    <span>
-                      {new Intl.DateTimeFormat('en-US', { 
-                        month: 'long', 
-                        day: 'numeric',
-                        year: 'numeric' 
-                      }).format(selectedDate)}
-                    </span>
-                  ) : (
-                    <span>Select a Date</span>
-                  )}
-                </CardTitle>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <CalendarIcon className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={handleDateSelect}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <CardDescription>
-                {selectedDateTransactions.length > 0 
-                  ? `${selectedDateTransactions.length} transaction${selectedDateTransactions.length > 1 ? 's' : ''}`
-                  : 'No transactions for this date'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {selectedDateTransactions.length > 0 ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Income</h3>
-                      <p className="text-xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totalIncome)}</p>
+                  {events.sort((a, b) => {
+                    const dateA = a.date instanceof Date ? a.date : new Date(a.date as string);
+                    const dateB = b.date instanceof Date ? b.date : new Date(b.date as string);
+                    return dateA.getTime() - dateB.getTime();
+                  }).map((event) => (
+                    <div key={event.id} className="flex items-center justify-between border-b pb-2">
+                      <div>
+                        <p className="font-medium">{event.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(event.date instanceof Date ? event.date : new Date(event.date as string), "MMMM d, yyyy")}
+                          {" • "}{event.description || event.category}
+                          {event.is_recurring && ` • Recurring ${event.recurrence_interval}`}
+                        </p>
+                      </div>
+                      <div className={`font-medium ${
+                        event.category === "income" ? "text-green-600" : 
+                        event.category === "expense" ? "text-red-600" : 
+                        "text-blue-600"
+                      }`}>
+                        {event.category === "income" ? "+" : 
+                         event.category === "expense" ? "-" : ""}
+                        ${event.amount.toFixed(2)}
+                      </div>
                     </div>
-                    <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-lg">
-                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Expenses</h3>
-                      <p className="text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totalExpense)}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4 bg-primary/5 rounded-lg">
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Net Amount</h3>
-                    <p className={`text-2xl font-bold ${netAmount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {formatCurrency(netAmount)}
-                    </p>
-                  </div>
-                  
-                  <div className="border-t pt-4 mt-4">
-                    <h3 className="font-medium mb-3">Transactions</h3>
-                    <div className="space-y-3">
-                      {selectedDateTransactions.map((transaction) => (
-                        <div key={transaction.id} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg">
-                          <div className="flex items-center">
-                            {transaction.type === 'income' ? (
-                              <ArrowUpCircle className="h-5 w-5 text-green-500 mr-2" />
-                            ) : (
-                              <ArrowDownCircle className="h-5 w-5 text-red-500 mr-2" />
-                            )}
-                            <div>
-                              <p className="font-medium">{transaction.description}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {new Intl.DateTimeFormat('en-US', { 
-                                  hour: 'numeric', 
-                                  minute: 'numeric' 
-                                }).format(transaction.date)}
-                              </p>
-                            </div>
-                          </div>
-                          <span className={`font-medium ${transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="py-8 text-center">
-                  <p className="text-muted-foreground">Select a date with transactions or create a new transaction.</p>
-                  <Button className="mt-4" variant="outline">Add Transaction</Button>
+                  ))}
                 </div>
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
