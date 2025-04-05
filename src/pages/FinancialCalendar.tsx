@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -170,14 +169,17 @@ const FinancialCalendar = () => {
     return "relative";
   };
 
-  // Custom day component for the calendar
-  const Day = (props: React.ComponentProps<typeof Calendar.Day>) => {
-    const customClass = getDayClass(props.date);
-    return (
-      <div className={customClass}>
-        {props.children}
-      </div>
-    );
+  // Custom day rendering for the calendar
+  const renderDay = (props: React.ComponentProps<typeof Calendar>) => {
+    return (props: any) => {
+      const date = props.date;
+      const customClass = getDayClass(date);
+      return (
+        <div className={customClass}>
+          {props.children}
+        </div>
+      );
+    };
   };
 
   // Filter events based on the selected date
@@ -354,7 +356,7 @@ const FinancialCalendar = () => {
                     onSelect={(date) => date && setSelectedDate(date)}
                     className="rounded-md border"
                     components={{
-                      Day
+                      Day: renderDay(Calendar)
                     }}
                   />
                   <div className="mt-4 flex gap-2 text-sm">
