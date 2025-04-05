@@ -1,5 +1,5 @@
 
-import { Outlet } from "react-router-dom";
+import { Outlet, Link } from "react-router-dom";
 import {
   Sidebar,
   SidebarHeader,
@@ -61,71 +61,71 @@ export const AppLayout = () => {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/dashboard" className="flex items-center gap-2">
+                      <Link to="/dashboard" className="flex items-center gap-2">
                         <LayoutDashboard className="h-4 w-4" />
                         <span>Dashboard</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/transactions" className="flex items-center gap-2">
+                      <Link to="/transactions" className="flex items-center gap-2">
                         <CreditCard className="h-4 w-4" />
                         <span>Transactions</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/budgets" className="flex items-center gap-2">
+                      <Link to="/budgets" className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4" />
                         <span>Budgets</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/savings-goals" className="flex items-center gap-2">
+                      <Link to="/savings-goals" className="flex items-center gap-2">
                         <Target className="h-4 w-4" />
                         <span>Savings Goals</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/financial-calendar" className="flex items-center gap-2">
+                      <Link to="/financial-calendar" className="flex items-center gap-2">
                         <CalendarDays className="h-4 w-4" />
                         <span>Calendar</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/financial-reports" className="flex items-center gap-2">
+                      <Link to="/financial-reports" className="flex items-center gap-2">
                         <PieChart className="h-4 w-4" />
                         <span>Reports</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/budget-summary" className="flex items-center gap-2">
+                      <Link to="/budget-summary" className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4" />
                         <span>Summary</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/settings" className="flex items-center gap-2">
+                      <Link to="/settings" className="flex items-center gap-2">
                         <Settings className="h-4 w-4" />
                         <span>Settings</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild onClick={handleLogout}>
-                      <div className="flex items-center gap-2 cursor-pointer">
+                    <SidebarMenuButton asChild>
+                      <div className="flex items-center gap-2 cursor-pointer" onClick={handleLogout}>
                         <LogOut className="h-4 w-4" />
                         <span>Logout</span>
                       </div>
@@ -135,10 +135,10 @@ export const AppLayout = () => {
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
-          <div className="flex flex-1 flex-col p-4 md:p-6 pt-0">
-            <Outlet />
-          </div>
         </Sidebar>
+        <div className="flex flex-1 flex-col p-4 md:p-6 pt-0">
+          <Outlet />
+        </div>
       </div>
     </SidebarProvider>
   );

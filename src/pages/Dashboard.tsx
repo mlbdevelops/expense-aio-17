@@ -8,6 +8,7 @@ import { Loader2, PlusCircle, ArrowUpCircle, ArrowDownCircle, CreditCard, PieCha
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 
 // Define types for our data
 type Transaction = {
@@ -43,59 +44,73 @@ const Dashboard = () => {
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
   const [availableBudget, setAvailableBudget] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      setError(null);
       
-      // Fetch transactions
-      const { data: transactionsData, error: transactionsError } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false })
-        .limit(5);
-      
-      if (transactionsError) {
-        console.error('Error fetching transactions:', transactionsError);
-      } else {
-        setTransactions(transactionsData || []);
+      try {
+        // Fetch transactions
+        const { data: transactionsData, error: transactionsError } = await supabase
+          .from('transactions')
+          .select('*')
+          .order('date', { ascending: false })
+          .limit(5);
         
-        // Calculate totals
-        const income = transactionsData?.filter(t => t.is_income).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-        const expense = transactionsData?.filter(t => !t.is_income).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+        if (transactionsError) {
+          console.error('Error fetching transactions:', transactionsError);
+          setError("Failed to load recent transactions");
+          toast.error("Failed to load recent transactions");
+        } else {
+          setTransactions(transactionsData || []);
+          
+          // Calculate totals
+          const income = transactionsData?.filter(t => t.is_income).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+          const expense = transactionsData?.filter(t => !t.is_income).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+          
+          setTotalIncome(income);
+          setTotalExpense(expense);
+        }
         
-        setTotalIncome(income);
-        setTotalExpense(expense);
+        // Fetch budgets
+        const { data: budgetsData, error: budgetsError } = await supabase
+          .from('budgets')
+          .select('*');
+        
+        if (budgetsError) {
+          console.error('Error fetching budgets:', budgetsError);
+          setError("Failed to load budget data");
+          toast.error("Failed to load budget data");
+        } else {
+          setBudgets(budgetsData || []);
+          
+          // Calculate total budget
+          const totalBudget = budgetsData?.reduce((sum, b) => sum + Number(b.amount), 0) || 0;
+          setAvailableBudget(totalBudget - totalExpense);
+        }
+        
+        // Fetch savings goals
+        const { data: savingsGoalsData, error: savingsGoalsError } = await supabase
+          .from('savings_goals')
+          .select('*')
+          .limit(3);
+          
+        if (savingsGoalsError) {
+          console.error('Error fetching savings goals:', savingsGoalsError);
+          setError("Failed to load savings goals");
+          toast.error("Failed to load savings goals");
+        } else {
+          setSavingsGoals(savingsGoalsData || []);
+        }
+      } catch (e) {
+        console.error("Dashboard data fetch error:", e);
+        setError("An unexpected error occurred");
+        toast.error("Failed to load dashboard data");
+      } finally {
+        setIsLoading(false);
       }
-      
-      // Fetch budgets
-      const { data: budgetsData, error: budgetsError } = await supabase
-        .from('budgets')
-        .select('*');
-      
-      if (budgetsError) {
-        console.error('Error fetching budgets:', budgetsError);
-      } else {
-        setBudgets(budgetsData || []);
-        
-        // Calculate total budget
-        const totalBudget = budgetsData?.reduce((sum, b) => sum + Number(b.amount), 0) || 0;
-        setAvailableBudget(totalBudget - totalExpense);
-      }
-      
-      // Fetch savings goals
-      const { data: savingsGoalsData, error: savingsGoalsError } = await supabase
-        .from('savings_goals')
-        .select('*')
-        .limit(3);
-        
-      if (savingsGoalsError) {
-        console.error('Error fetching savings goals:', savingsGoalsError);
-      } else {
-        setSavingsGoals(savingsGoalsData || []);
-      }
-      
-      setIsLoading(false);
     };
     
     fetchData();
@@ -121,6 +136,21 @@ const Dashboard = () => {
         <div className="flex justify-center p-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      ) : error ? (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center text-muted-foreground">
+              <p>{error}</p>
+              <Button 
+                variant="outline" 
+                className="mt-4" 
+                onClick={() => window.location.reload()}
+              >
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <>
           {/* Financial Overview Cards */}
