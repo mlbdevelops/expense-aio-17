@@ -2,100 +2,83 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuthStore } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client-extended";
 import { formatCurrency } from "@/lib/utils";
 import { Loader2, CalendarIcon, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { toast } from "sonner";
-import { DayProps } from "react-day-picker";
+import { DayContentProps } from "react-day-picker";
 
 type CalendarTransaction = {
   id: string;
+  date: Date;
   description: string;
   amount: number;
-  date: Date;
-  is_income: boolean;
-};
-
-type CalendarBudget = {
-  id: string;
-  category: string;
-  amount: number;
-  period: string;
-  due_date: Date;
-};
-
-type CalendarSavingsGoal = {
-  id: string;
-  name: string;
-  target_amount: number;
-  current_amount: number;
-  target_date: Date | null;
+  type: 'income' | 'expense';
 };
 
 const FinancialCalendar = () => {
   const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [month, setMonth] = useState<Date>(new Date());
   const [transactions, setTransactions] = useState<CalendarTransaction[]>([]);
-  const [savingsGoals, setSavingsGoals] = useState<CalendarSavingsGoal[]>([]);
-  const [selectedDay, setSelectedDay] = useState<Date | undefined>(new Date());
-  const [transactionsForDay, setTransactionsForDay] = useState<CalendarTransaction[]>([]);
-  const [savingsGoalsForDay, setSavingsGoalsForDay] = useState<CalendarSavingsGoal[]>([]);
+  const [selectedDateTransactions, setSelectedDateTransactions] = useState<CalendarTransaction[]>([]);
+  
+  // Mock data generator
+  const generateMockTransactions = (month: Date): CalendarTransaction[] => {
+    const transactions: CalendarTransaction[] = [];
+    const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    
+    // Generate 1-3 transactions for random days in the month
+    for (let i = 1; i <= daysInMonth; i++) {
+      // Randomly decide if this day has transactions (about 40% chance)
+      if (Math.random() < 0.4) {
+        const numTransactions = Math.floor(Math.random() * 3) + 1; // 1-3 transactions
+        const date = new Date(month.getFullYear(), month.getMonth(), i);
+        
+        for (let j = 0; j < numTransactions; j++) {
+          const isIncome = Math.random() < 0.3; // 30% chance of income
+          const transaction: CalendarTransaction = {
+            id: `transaction-${i}-${j}-${month.getMonth()}-${month.getFullYear()}`,
+            date: new Date(date),
+            description: isIncome 
+              ? ['Salary', 'Freelance Payment', 'Investment Return', 'Gift Received'][Math.floor(Math.random() * 4)]
+              : ['Groceries', 'Rent', 'Utilities', 'Dining', 'Shopping', 'Entertainment', 'Transport'][Math.floor(Math.random() * 7)],
+            amount: isIncome 
+              ? Math.floor(Math.random() * 1000) + 500 // Income: $500-$1500
+              : Math.floor(Math.random() * 200) + 50, // Expense: $50-$250
+            type: isIncome ? 'income' : 'expense'
+          };
+          transactions.push(transaction);
+        }
+      }
+    }
+    
+    return transactions;
+  };
 
-  // Fetch data
+  // Fetch transactions for the selected month
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return;
-      
       setIsLoading(true);
       
       try {
-        // Fetch transactions for the month
-        const startOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
-        const endOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+        // In a real app, you would fetch data from an API
+        // For this example, we'll simulate a delay and use mock data
+        await new Promise(resolve => setTimeout(resolve, 800));
         
-        const { data: transactionsData, error: transactionsError } = await supabase
-          .from('transactions')
-          .select('*')
-          .gte('date', startOfMonth.toISOString().split('T')[0])
-          .lte('date', endOfMonth.toISOString().split('T')[0]);
+        const mockTransactions = generateMockTransactions(month);
+        setTransactions(mockTransactions);
         
-        if (transactionsError) throw transactionsError;
-        
-        // Fetch savings goals with target dates in this month
-        const { data: savingsData, error: savingsError } = await supabase
-          .from('savings_goals')
-          .select('*')
-          .not('target_date', 'is', null)
-          .gte('target_date', startOfMonth.toISOString().split('T')[0])
-          .lte('target_date', endOfMonth.toISOString().split('T')[0]);
-        
-        if (savingsError) throw savingsError;
-        
-        // Format data for calendar
-        const formattedTransactions = transactionsData.map((transaction) => ({
-          ...transaction,
-          date: new Date(transaction.date),
-        }));
-        
-        const formattedSavingsGoals = savingsData.map((goal) => ({
-          ...goal,
-          target_date: goal.target_date ? new Date(goal.target_date) : null,
-        }));
-        
-        setTransactions(formattedTransactions);
-        setSavingsGoals(formattedSavingsGoals);
-        
-        // If a day is selected, update the transactions for that day
-        if (selectedDay) {
-          updateSelectedDayData(selectedDay, formattedTransactions, formattedSavingsGoals);
+        // Update selected day data if needed
+        if (selectedDate) {
+          updateSelectedDayData(selectedDate, mockTransactions);
         }
-      } catch (error: any) {
-        console.error('Error fetching calendar data:', error);
-        toast.error('Failed to load calendar data');
+      } catch (error) {
+        console.error("Error fetching calendar data:", error);
+        toast.error("Failed to load financial calendar data");
       } finally {
         setIsLoading(false);
       }
@@ -106,229 +89,222 @@ const FinancialCalendar = () => {
   
   // Update selected day data
   const updateSelectedDayData = (
-    day: Date, 
-    allTransactions = transactions, 
-    allSavingsGoals = savingsGoals
+    date: Date,
+    transactionsData: CalendarTransaction[] = transactions
   ) => {
-    const dayTransactions = allTransactions.filter(
-      (t) => t.date.toDateString() === day.toDateString()
+    const dayTransactions = transactionsData.filter(
+      (t) => t.date.getDate() === date.getDate() &&
+      t.date.getMonth() === date.getMonth() &&
+      t.date.getFullYear() === date.getFullYear()
     );
-    
-    const daySavingsGoals = allSavingsGoals.filter(
-      (g) => g.target_date && g.target_date.toDateString() === day.toDateString()
-    );
-    
-    setTransactionsForDay(dayTransactions);
-    setSavingsGoalsForDay(daySavingsGoals);
+    setSelectedDateTransactions(dayTransactions);
   };
 
-  // Handle day selection
-  const handleDaySelect = (day: Date | undefined) => {
-    setSelectedDay(day);
-    if (day) {
-      updateSelectedDayData(day);
+  // Handle date selection
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    if (date) {
+      updateSelectedDayData(date);
+    } else {
+      setSelectedDateTransactions([]);
     }
   };
 
-  // Get date class for styling calendar days
-  const getDayClass = (day: Date) => {
-    const dayString = day.toDateString();
-    
-    const hasTransaction = transactions.some(t => 
-      t.date.toDateString() === dayString
+  // Handle month change
+  const handleMonthChange = (newMonth: Date) => {
+    setMonth(newMonth);
+  };
+
+  // Get CSS class for days with transactions
+  const getDayClass = (date: Date): string => {
+    const hasTransactions = transactions.some(
+      (t) => t.date.getDate() === date.getDate() &&
+      t.date.getMonth() === date.getMonth() &&
+      t.date.getFullYear() === date.getFullYear()
     );
     
-    const hasSavingsGoal = savingsGoals.some(g => 
-      g.target_date && g.target_date.toDateString() === dayString
-    );
-    
-    if (hasTransaction && hasSavingsGoal) {
-      return "bg-amber-100 dark:bg-amber-900 rounded-md";
-    } else if (hasTransaction) {
-      return "bg-blue-100 dark:bg-blue-900 rounded-md";
-    } else if (hasSavingsGoal) {
-      return "bg-green-100 dark:bg-green-900 rounded-md";
+    if (hasTransactions) {
+      // Check if there are any income transactions for this date
+      const hasIncome = transactions.some(
+        (t) => t.date.getDate() === date.getDate() &&
+        t.date.getMonth() === date.getMonth() &&
+        t.date.getFullYear() === date.getFullYear() &&
+        t.type === 'income'
+      );
+      
+      // Check if there are any expense transactions for this date
+      const hasExpense = transactions.some(
+        (t) => t.date.getDate() === date.getDate() &&
+        t.date.getMonth() === date.getMonth() &&
+        t.date.getFullYear() === date.getFullYear() &&
+        t.type === 'expense'
+      );
+      
+      if (hasIncome && hasExpense) {
+        return "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-purple-500";
+      } else if (hasIncome) {
+        return "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-green-500";
+      } else {
+        return "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-red-500";
+      }
     }
     
     return "";
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Financial Calendar</h1>
-        <p className="text-muted-foreground">View and plan your financial activities by date</p>
+  // Custom day content renderer for the calendar
+  const renderDayContent = (props: DayContentProps) => {
+    const customClass = getDayClass(props.date);
+    return (
+      <div className={customClass}>
+        <div {...props} />
       </div>
+    );
+  };
+
+  const totalIncome = selectedDateTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+    
+  const totalExpense = selectedDateTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const netAmount = totalIncome - totalExpense;
+
+  return (
+    <div className="container mx-auto p-4 space-y-6">
+      <h1 className="text-3xl font-bold mb-4">Financial Calendar</h1>
       
-      {isLoading ? (
-        <div className="flex justify-center p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Calendar */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Calendar View</CardTitle>
-              <CardDescription>Visualize your transactions and goals</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-4">
-                <div className="flex justify-center">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDay}
-                    onSelect={handleDaySelect}
-                    month={month}
-                    onMonthChange={setMonth}
-                    className="rounded-md border pointer-events-auto"
-                    modifiers={{
-                      hasActivity: (date) => {
-                        const dateStr = date.toDateString();
-                        return transactions.some(t => t.date.toDateString() === dateStr) ||
-                          savingsGoals.some(g => g.target_date && g.target_date.toDateString() === dateStr);
-                      }
-                    }}
-                    modifiersClassNames={{
-                      hasActivity: "font-bold"
-                    }}
-                    components={{
-                      Day: ({ date, ...props }: DayProps) => {
-                        const customClass = getDayClass(date);
-                        return (
-                          <div className={customClass}>
-                            <button 
-                              type="button"
-                              {...props} 
-                              className="w-9 h-9 p-0 font-normal aria-selected:opacity-100"
-                            >
-                              {date.getDate()}
-                            </button>
-                          </div>
-                        );
-                      }
-                    }}
-                  />
-                </div>
-                
-                <div className="flex gap-4 justify-center text-sm">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    <span>Transactions</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span>Savings Goals</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                    <span>Both</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Day details */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>
-                {selectedDay ? (
-                  <div className="flex items-center gap-2">
-                    <CalendarIcon className="h-5 w-5" />
-                    {selectedDay.toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </div>
-                ) : (
-                  "Select a date"
-                )}
-              </CardTitle>
+              <CardTitle>Financial Events</CardTitle>
               <CardDescription>
-                {selectedDay ? "Activities scheduled for this day" : "Click on a date to see details"}
+                Track your income and expenses throughout the month
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {selectedDay && (
-                <Tabs defaultValue="transactions">
-                  <TabsList className="grid grid-cols-2 mb-4">
-                    <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                    <TabsTrigger value="goals">Savings Goals</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="transactions">
-                    {transactionsForDay.length > 0 ? (
-                      <div className="space-y-4">
-                        {transactionsForDay.map((transaction) => (
-                          <div key={transaction.id} className="flex items-center justify-between border-b pb-3">
-                            <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-full ${transaction.is_income ? 'bg-green-100' : 'bg-red-100'}`}>
-                                {transaction.is_income ? 
-                                  <ArrowUpCircle className="h-4 w-4 text-green-500" /> : 
-                                  <ArrowDownCircle className="h-4 w-4 text-red-500" />
-                                }
-                              </div>
-                              <div>
-                                <p className="font-medium">{transaction.description}</p>
-                              </div>
-                            </div>
-                            <div className={`font-medium ${transaction.is_income ? 'text-green-600' : 'text-red-600'}`}>
-                              {transaction.is_income ? '+' : '-'}{formatCurrency(transaction.amount)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-muted-foreground">
-                        No transactions scheduled for this day
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="goals">
-                    {savingsGoalsForDay.length > 0 ? (
-                      <div className="space-y-4">
-                        {savingsGoalsForDay.map((goal) => (
-                          <div key={goal.id} className="border rounded-lg p-4">
-                            <h3 className="font-medium">{goal.name}</h3>
-                            <div className="mt-1 text-sm text-muted-foreground">
-                              Target: {formatCurrency(goal.target_amount)}
-                            </div>
-                            <div className="mt-2">
-                              <div className="flex justify-between text-sm mb-1">
-                                <span>Progress</span>
-                                <span>{Math.round((goal.current_amount / goal.target_amount) * 100)}%</span>
-                              </div>
-                              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-primary" 
-                                  style={{ width: `${Math.min(100, (goal.current_amount / goal.target_amount) * 100)}%` }} 
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-muted-foreground">
-                        No savings goals due on this day
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
+              {isLoading ? (
+                <div className="flex justify-center items-center h-[400px]">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleDateSelect}
+                  onMonthChange={handleMonthChange}
+                  className="rounded-md border"
+                  components={{
+                    DayContent: renderDayContent
+                  }}
+                />
               )}
-              
-              {!selectedDay && (
-                <div className="flex justify-center items-center h-[200px] text-muted-foreground">
-                  <p>Select a day on the calendar to view scheduled activities</p>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>
+                  {selectedDate ? (
+                    <span>
+                      {new Intl.DateTimeFormat('en-US', { 
+                        month: 'long', 
+                        day: 'numeric',
+                        year: 'numeric' 
+                      }).format(selectedDate)}
+                    </span>
+                  ) : (
+                    <span>Select a Date</span>
+                  )}
+                </CardTitle>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <CalendarIcon className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={handleDateSelect}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <CardDescription>
+                {selectedDateTransactions.length > 0 
+                  ? `${selectedDateTransactions.length} transaction${selectedDateTransactions.length > 1 ? 's' : ''}`
+                  : 'No transactions for this date'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {selectedDateTransactions.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Income</h3>
+                      <p className="text-xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totalIncome)}</p>
+                    </div>
+                    <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-lg">
+                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Expenses</h3>
+                      <p className="text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totalExpense)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 bg-primary/5 rounded-lg">
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Net Amount</h3>
+                    <p className={`text-2xl font-bold ${netAmount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {formatCurrency(netAmount)}
+                    </p>
+                  </div>
+                  
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="font-medium mb-3">Transactions</h3>
+                    <div className="space-y-3">
+                      {selectedDateTransactions.map((transaction) => (
+                        <div key={transaction.id} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg">
+                          <div className="flex items-center">
+                            {transaction.type === 'income' ? (
+                              <ArrowUpCircle className="h-5 w-5 text-green-500 mr-2" />
+                            ) : (
+                              <ArrowDownCircle className="h-5 w-5 text-red-500 mr-2" />
+                            )}
+                            <div>
+                              <p className="font-medium">{transaction.description}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Intl.DateTimeFormat('en-US', { 
+                                  hour: 'numeric', 
+                                  minute: 'numeric' 
+                                }).format(transaction.date)}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={`font-medium ${transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <p className="text-muted-foreground">Select a date with transactions or create a new transaction.</p>
+                  <Button className="mt-4" variant="outline">Add Transaction</Button>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
-      )}
+      </div>
     </div>
   );
 };

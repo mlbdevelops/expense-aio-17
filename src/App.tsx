@@ -17,6 +17,7 @@ import BudgetSummary from "./pages/BudgetSummary";
 import SavingsGoals from "./pages/SavingsGoals";
 import FinancialCalendar from "./pages/FinancialCalendar";
 import FinancialReports from "./pages/FinancialReports";
+import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
 
@@ -32,7 +33,7 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               {/* Public Routes */}
-              <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
+              <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Index />} />
               <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Auth />} />
               <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Auth />} />
               
