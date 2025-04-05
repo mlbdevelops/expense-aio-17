@@ -1,3 +1,4 @@
+
 import { Database } from './types';
 
 // Extend the Database type to include our new tables
@@ -26,7 +27,7 @@ export interface ExtendedDatabase extends Database {
           amount: number;
           date: string;
           category: string;
-          is_income: boolean;
+          is_income?: boolean;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -43,14 +44,7 @@ export interface ExtendedDatabase extends Database {
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "transactions_user_id_fkey";
-            columns: ["user_id"];
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          }
-        ];
+        Relationships: [];
       };
       budget_categories: {
         Row: {
@@ -91,49 +85,7 @@ export interface ExtendedDatabase extends Database {
         };
         Relationships: [];
       };
-      savings_goals: {
-        Row: {
-          id: string;
-          user_id: string;
-          name: string;
-          target_amount: number;
-          current_amount: number;
-          target_date: string | null;
-          category: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          name: string;
-          target_amount: number;
-          current_amount?: number;
-          target_date?: string | null;
-          category?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          name?: string;
-          target_amount?: number;
-          current_amount?: number;
-          target_date?: string | null;
-          category?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "savings_goals_user_id_fkey";
-            columns: ["user_id"];
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          }
-        ];
-      };
+      savings_goals: Database['public']['Tables']['savings_goals'];
     };
     Views: Database['public']['Views'];
     Functions: Database['public']['Functions'];
