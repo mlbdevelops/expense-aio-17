@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client-extended";
 import { formatCurrency } from "@/lib/utils";
 import { Loader2, CalendarIcon, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { toast } from "sonner";
+import { DayProps } from "react-day-picker";
 
 type CalendarTransaction = {
   id: string;
@@ -101,7 +103,6 @@ const FinancialCalendar = () => {
     
     fetchData();
   }, [user, month]);
-
   
   // Update selected day data
   const updateSelectedDayData = (
@@ -192,15 +193,14 @@ const FinancialCalendar = () => {
                       hasActivity: "font-bold"
                     }}
                     components={{
-                      Day: ({ date, selected, disabled, ...props }) => {
+                      Day: ({ date, ...props }: DayProps) => {
                         const customClass = getDayClass(date);
                         return (
                           <div className={customClass}>
                             <button 
                               type="button"
                               {...props} 
-                              className={`w-9 h-9 p-0 font-normal aria-selected:opacity-100 ${selected ? 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground' : ''}`}
-                              disabled={disabled}
+                              className="w-9 h-9 p-0 font-normal aria-selected:opacity-100"
                             >
                               {date.getDate()}
                             </button>
