@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -103,6 +102,7 @@ const FinancialCalendar = () => {
     fetchData();
   }, [user, month]);
 
+  
   // Update selected day data
   const updateSelectedDayData = (
     day: Date, 
@@ -180,7 +180,7 @@ const FinancialCalendar = () => {
                     onSelect={handleDaySelect}
                     month={month}
                     onMonthChange={setMonth}
-                    className="rounded-md border"
+                    className="rounded-md border pointer-events-auto"
                     modifiers={{
                       hasActivity: (date) => {
                         const dateStr = date.toDateString();
@@ -192,11 +192,18 @@ const FinancialCalendar = () => {
                       hasActivity: "font-bold"
                     }}
                     components={{
-                      Day: (props) => {
-                        const customClass = getDayClass(props.date);
+                      Day: ({ date, selected, disabled, ...props }) => {
+                        const customClass = getDayClass(date);
                         return (
                           <div className={customClass}>
-                            {props.children}
+                            <button 
+                              type="button"
+                              {...props} 
+                              className={`w-9 h-9 p-0 font-normal aria-selected:opacity-100 ${selected ? 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground' : ''}`}
+                              disabled={disabled}
+                            >
+                              {date.getDate()}
+                            </button>
                           </div>
                         );
                       }
