@@ -3,18 +3,18 @@ import { Outlet } from "react-router-dom";
 import {
   Sidebar,
   SidebarHeader,
-  SidebarMain,
-  SidebarNav,
-  SidebarNavHeader,
-  SidebarNavHeaderTitle,
-  SidebarNavLink,
-  SidebarNavList,
-  SidebarSection,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton
 } from "@/components/ui/sidebar";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
-import { useMobile } from "@/hooks/use-mobile";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
   BarChart3,
   CalendarDays,
@@ -30,7 +30,7 @@ import {
 export const AppLayout = () => {
   const navigate = useNavigate();
   const { isAuthenticated, logout } = useAuthStore();
-  const { isDesktop } = useMobile();
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -44,87 +44,94 @@ export const AppLayout = () => {
   };
 
   return (
-    <Sidebar
-      defaultLayout={{
-        isMiniSidebar: false,
-        isMobileSidebarOpen: false,
-      }}
-      navHeader={isDesktop ? "Links" : undefined}
-    >
+    <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2">
           <DollarSign className="h-6 w-6" />
-          <h1 className="text-xl font-bold">Budget Tracker</h1>
+          <h1 className="text-xl font-bold">Fiscora</h1>
         </div>
       </SidebarHeader>
-      <SidebarMain
-        className="px-2"
-        mainHeader={isDesktop ? undefined : "Links"}
-      >
-        <SidebarSection>
-          <SidebarNav>
-            <SidebarNavHeader>
-              <SidebarNavHeaderTitle>Menu</SidebarNavHeaderTitle>
-            </SidebarNavHeader>
-            <SidebarNavList>
-              <SidebarNavLink
-                href="/dashboard"
-                icon={<LayoutDashboard className="h-4 w-4" />}
-              >
-                Dashboard
-              </SidebarNavLink>
-              <SidebarNavLink
-                href="/transactions"
-                icon={<CreditCard className="h-4 w-4" />}
-              >
-                Transactions
-              </SidebarNavLink>
-              <SidebarNavLink
-                href="/budgets"
-                icon={<BarChart3 className="h-4 w-4" />}
-              >
-                Budgets
-              </SidebarNavLink>
-              <SidebarNavLink
-                href="/savings-goals"
-                icon={<Target className="h-4 w-4" />}
-              >
-                Savings Goals
-              </SidebarNavLink>
-              <SidebarNavLink
-                href="/financial-calendar"
-                icon={<CalendarDays className="h-4 w-4" />}
-              >
-                Calendar
-              </SidebarNavLink>
-              <SidebarNavLink
-                href="/financial-reports"
-                icon={<PieChart className="h-4 w-4" />}
-              >
-                Reports
-              </SidebarNavLink>
-              <SidebarNavLink
-                href="/budget-summary"
-                icon={<DollarSign className="h-4 w-4" />}
-              >
-                Summary
-              </SidebarNavLink>
-              <SidebarNavLink
-                href="/settings"
-                icon={<Settings className="h-4 w-4" />}
-              >
-                Settings
-              </SidebarNavLink>
-              <SidebarNavLink
-                onClick={handleLogout}
-                icon={<LogOut className="h-4 w-4" />}
-              >
-                Logout
-              </SidebarNavLink>
-            </SidebarNavList>
-          </SidebarNav>
-        </SidebarSection>
-      </SidebarMain>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a href="/dashboard" className="flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span>Dashboard</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a href="/transactions" className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    <span>Transactions</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a href="/budgets" className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    <span>Budgets</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a href="/savings-goals" className="flex items-center gap-2">
+                    <Target className="h-4 w-4" />
+                    <span>Savings Goals</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a href="/financial-calendar" className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4" />
+                    <span>Calendar</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a href="/financial-reports" className="flex items-center gap-2">
+                    <PieChart className="h-4 w-4" />
+                    <span>Reports</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a href="/budget-summary" className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    <span>Summary</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a href="/settings" className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    <span>Settings</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild onClick={handleLogout}>
+                  <div className="flex items-center gap-2 cursor-pointer">
+                    <LogOut className="h-4 w-4" />
+                    <span>Logout</span>
+                  </div>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
       <div className="flex flex-1 flex-col p-4 md:p-6 pt-0">
         <Outlet />
       </div>
