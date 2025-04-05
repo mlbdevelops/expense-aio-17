@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -157,7 +156,7 @@ const FinancialCalendar = () => {
     const customClass = getDayClass(props.date);
     return (
       <div className={customClass}>
-        <div {...props} />
+        {props.children}
       </div>
     );
   };
