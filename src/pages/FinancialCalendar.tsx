@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,7 @@ type FinancialEvent = {
   description?: string;
   is_recurring: boolean;
   recurrence_interval?: string;
+  user_id?: string;
 };
 
 type CalendarView = "month" | "week" | "day";
@@ -48,18 +50,25 @@ const FinancialCalendar = () => {
     const fetchEvents = async () => {
       setIsLoading(true);
       try {
+        // Using transactions table as a substitute for financial_events
         const { data, error } = await supabase
-          .from('financial_events')
+          .from('transactions')
           .select('*');
         
         if (error) {
           throw error;
         }
         
-        // Convert date strings to Date objects
-        const formattedEvents = data.map(event => ({
-          ...event,
-          date: new Date(event.date)
+        // Map transactions to FinancialEvent format
+        const formattedEvents: FinancialEvent[] = data.map(transaction => ({
+          id: transaction.id,
+          title: transaction.description,
+          date: new Date(transaction.date),
+          amount: transaction.amount,
+          category: transaction.category,
+          description: transaction.notes || undefined,
+          is_recurring: false, // Assuming transactions don't have recurrence info
+          user_id: transaction.user_id
         }));
         
         setEvents(formattedEvents);
@@ -81,15 +90,21 @@ const FinancialCalendar = () => {
   // Handle adding a new event
   const handleAddEvent = async () => {
     try {
+      // Create event to insert into the transactions table
       const eventToAdd = {
-        ...newEvent,
+        description: newEvent.title || '',
+        amount: newEvent.amount || 0,
+        category: newEvent.category || 'expense',
+        notes: newEvent.description || null,
         date: newEvent.date instanceof Date
-          ? newEvent.date.toISOString()
-          : new Date(newEvent.date as string).toISOString()
+          ? newEvent.date.toISOString().split('T')[0]
+          : new Date(newEvent.date as string).toISOString().split('T')[0],
+        is_income: newEvent.category === 'income',
+        user_id: '00000000-0000-0000-0000-000000000000' // Placeholder user_id - in real app, use auth.uid()
       };
       
       const { data, error } = await supabase
-        .from('financial_events')
+        .from('transactions')
         .insert(eventToAdd)
         .select();
       
@@ -98,7 +113,18 @@ const FinancialCalendar = () => {
       }
       
       // Add new event to state
-      setEvents([...events, { ...data[0], date: new Date(data[0].date) }]);
+      const newFinancialEvent: FinancialEvent = {
+        id: data[0].id,
+        title: data[0].description,
+        date: new Date(data[0].date),
+        amount: data[0].amount,
+        category: data[0].category,
+        description: data[0].notes || undefined,
+        is_recurring: false,
+        user_id: data[0].user_id
+      };
+      
+      setEvents([...events, newFinancialEvent]);
       
       // Reset form and close dialog
       setNewEvent({
@@ -170,16 +196,14 @@ const FinancialCalendar = () => {
   };
 
   // Custom day rendering for the calendar
-  const renderDay = (props: React.ComponentProps<typeof Calendar>) => {
-    return (props: any) => {
-      const date = props.date;
-      const customClass = getDayClass(date);
-      return (
-        <div className={customClass}>
-          {props.children}
-        </div>
-      );
-    };
+  const renderDay = (day: any) => {
+    const date = day.date;
+    const customClass = getDayClass(date);
+    return (
+      <div className={customClass}>
+        {day.children}
+      </div>
+    );
   };
 
   // Filter events based on the selected date
@@ -356,7 +380,7 @@ const FinancialCalendar = () => {
                     onSelect={(date) => date && setSelectedDate(date)}
                     className="rounded-md border"
                     components={{
-                      Day: renderDay(Calendar)
+                      Day: renderDay
                     }}
                   />
                   <div className="mt-4 flex gap-2 text-sm">
