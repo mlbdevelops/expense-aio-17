@@ -1,7 +1,5 @@
-
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client-extended";
 import { useAuthStore } from "@/lib/auth";
 import { CalendarView } from "@/components/financial-calendar/CalendarView";
 import { ListView } from "@/components/financial-calendar/ListView";
@@ -89,7 +87,6 @@ const FinancialCalendar = () => {
     const success = await cancelEvent(eventId);
     
     if (success) {
-      // Update local state
       setEvents(events.map(event => 
         event.id === eventId 
           ? { ...event, canceled: true } 
@@ -102,7 +99,6 @@ const FinancialCalendar = () => {
     const deletedEventIds = await deletePastEvents(events);
     
     if (deletedEventIds.length > 0) {
-      // Update local state
       setEvents(events.filter(event => !deletedEventIds.includes(event.id)));
       setIsDeletePastEventsDialogOpen(false);
     }
