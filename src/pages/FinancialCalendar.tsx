@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +14,6 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useAuthStore } from "@/lib/auth";
 
-// Define types
 type FinancialEvent = {
   id: string;
   title: string;
@@ -47,12 +45,10 @@ const FinancialCalendar = () => {
     recurrence_interval: "monthly"
   });
 
-  // Fetch events from the database
   useEffect(() => {
     const fetchEvents = async () => {
       setIsLoading(true);
       try {
-        // Using transactions table as a financial events source
         const { data, error } = await supabase
           .from('transactions')
           .select('*');
@@ -61,13 +57,10 @@ const FinancialCalendar = () => {
           throw error;
         }
         
-        // Map transactions to FinancialEvent format with proper date handling
         const formattedEvents: FinancialEvent[] = data.map(transaction => {
-          // Create a date that preserves the exact date from the database
           const dateStr = transaction.date;
-          // Parse the date string in a way that preserves the exact date
           const [year, month, day] = dateStr.split('-').map(Number);
-          const eventDate = new Date(year, month - 1, day); // month is 0-indexed in JS Date
+          const eventDate = new Date(year, month - 1, day);
           
           return {
             id: transaction.id,
@@ -76,7 +69,7 @@ const FinancialCalendar = () => {
             amount: transaction.amount || 0,
             category: transaction.category || "expense",
             description: transaction.notes || "",
-            is_recurring: false, // Assuming transactions don't have recurrence info
+            is_recurring: false,
             user_id: transaction.user_id
           };
         });
@@ -93,7 +86,6 @@ const FinancialCalendar = () => {
     fetchEvents();
   }, []);
 
-  // Update newEvent date when selectedDate changes
   useEffect(() => {
     setNewEvent(prev => ({
       ...prev,
@@ -101,7 +93,6 @@ const FinancialCalendar = () => {
     }));
   }, [selectedDate]);
 
-  // Handle adding a new event
   const handleAddEvent = async () => {
     try {
       if (!newEvent.title || !newEvent.amount) {
@@ -109,23 +100,20 @@ const FinancialCalendar = () => {
         return;
       }
       
-      // Preserve exact date when storing to database
       const dateToStore = newEvent.date instanceof Date 
         ? newEvent.date
         : new Date(newEvent.date as string);
       
-      // Format as YYYY-MM-DD, ensuring we preserve the exact date
       const formattedDate = format(dateToStore, 'yyyy-MM-dd');
       
-      // Create event to insert into the transactions table
       const eventToAdd = {
         description: newEvent.title || '',
         amount: newEvent.amount || 0,
         category: newEvent.category || 'expense',
         notes: newEvent.description || null,
-        date: formattedDate, // Store as YYYY-MM-DD format
+        date: formattedDate,
         is_income: newEvent.category === 'income',
-        user_id: user?.id || null // Use current user's ID
+        user_id: user?.id || null
       };
       
       const { data, error } = await supabase
@@ -141,12 +129,10 @@ const FinancialCalendar = () => {
         throw new Error('No data returned after insertion');
       }
       
-      // For the newly added event, create a date that preserves the exact date we intended
       const dateStr = data[0].date;
       const [year, month, day] = dateStr.split('-').map(Number);
-      const eventDate = new Date(year, month - 1, day); // month is 0-indexed in JS Date
+      const eventDate = new Date(year, month - 1, day);
       
-      // Add new event to state
       const newFinancialEvent: FinancialEvent = {
         id: data[0].id,
         title: data[0].description || "No Title",
@@ -160,7 +146,6 @@ const FinancialCalendar = () => {
       
       setEvents([...events, newFinancialEvent]);
       
-      // Reset form and close dialog
       setNewEvent({
         title: "",
         date: selectedDate,
@@ -179,7 +164,6 @@ const FinancialCalendar = () => {
     }
   };
 
-  // Handle form input changes
   const handleInputChange = (field: string, value: string | number | boolean | Date) => {
     setNewEvent({
       ...newEvent,
@@ -187,7 +171,6 @@ const FinancialCalendar = () => {
     });
   };
 
-  // Get events for the selected date - fix comparison to match exact day
   const getEventsForDate = (date: Date) => {
     return events.filter(event => {
       const eventDate = event.date instanceof Date
@@ -200,7 +183,6 @@ const FinancialCalendar = () => {
     });
   };
 
-  // Get CSS class for calendar days based on events
   const getDayClass = (date: Date) => {
     const eventsForDate = getEventsForDate(date);
     
@@ -222,18 +204,20 @@ const FinancialCalendar = () => {
     return "relative";
   };
 
-  // Custom day rendering for the calendar
-  const renderDay = (day: any) => {
-    const date = day.date;
+  const renderDay = (props: any) => {
+    const date = props.date;
+    const dayNumber = date.getDate();
     const customClass = getDayClass(date);
+    
     return (
       <div className={customClass}>
-        {day.day}
+        <div className="flex items-center justify-center h-9 w-9">
+          {dayNumber}
+        </div>
       </div>
     );
   };
 
-  // Filter events based on the selected date
   const selectedDateEvents = getEventsForDate(selectedDate);
 
   return (
@@ -493,7 +477,6 @@ const FinancialCalendar = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Group events by month and year */}
                   {Array.from(new Set(events.map(event => {
                     const date = event.date instanceof Date ? event.date : new Date(event.date as string);
                     return format(date, 'MMMM yyyy');
