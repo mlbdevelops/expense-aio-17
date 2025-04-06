@@ -3,9 +3,9 @@ import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Loader2, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { PlusCircle, Loader2, ArrowUpCircle, ArrowDownCircle, Trash2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isBefore } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ type FinancialEvent = {
   is_recurring: boolean;
   recurrence_interval?: string;
   user_id?: string;
+  canceled?: boolean;
 };
 
 type CalendarView = "month" | "week" | "day";
@@ -35,6 +36,7 @@ const FinancialCalendar = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<CalendarView>("month");
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [isDeletePastEventsDialogOpen, setIsDeletePastEventsDialogOpen] = useState(false);
   const { user } = useAuthStore();
   const [newEvent, setNewEvent] = useState<Partial<FinancialEvent>>({
     title: "",
@@ -217,6 +219,79 @@ const FinancialCalendar = () => {
     );
   };
 
+  const handleDeletePastEvents = async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Get all past events
+      const pastEventIds = events
+        .filter(event => {
+          const eventDate = event.date instanceof Date 
+            ? event.date 
+            : new Date(event.date as string);
+          return isBefore(eventDate, today) || event.canceled;
+        })
+        .map(event => event.id);
+      
+      if (pastEventIds.length === 0) {
+        toast.info("No past or canceled events to delete");
+        setIsDeletePastEventsDialogOpen(false);
+        return;
+      }
+      
+      // Delete from database
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .in('id', pastEventIds);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state
+      setEvents(events.filter(event => {
+        const eventDate = event.date instanceof Date 
+          ? event.date 
+          : new Date(event.date as string);
+        return !isBefore(eventDate, today) && !event.canceled;
+      }));
+      
+      toast.success(`Successfully deleted ${pastEventIds.length} past or canceled event${pastEventIds.length !== 1 ? 's' : ''}`);
+      setIsDeletePastEventsDialogOpen(false);
+    } catch (error) {
+      console.error('Error deleting past events:', error);
+      toast.error("Failed to delete past events. Please try again.");
+    }
+  };
+
+  const handleCancelEvent = async (eventId: string) => {
+    try {
+      // Mark event as canceled in database
+      const { error } = await supabase
+        .from('transactions')
+        .update({ canceled: true })
+        .eq('id', eventId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state
+      setEvents(events.map(event => 
+        event.id === eventId 
+          ? { ...event, canceled: true } 
+          : event
+      ));
+      
+      toast.success("Event canceled successfully");
+    } catch (error) {
+      console.error('Error canceling event:', error);
+      toast.error("Failed to cancel event. Please try again.");
+    }
+  };
+
   const selectedDateEvents = getEventsForDate(selectedDate);
 
   return (
@@ -263,121 +338,151 @@ const FinancialCalendar = () => {
               </Button>
             </div>
             
-            <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Add Event
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Financial Event</DialogTitle>
-                  <DialogDescription>
-                    Create a new financial event for {format(selectedDate, "MMMM d, yyyy")}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="title" className="text-right">
-                      Title
-                    </Label>
-                    <Input
-                      id="title"
-                      value={newEvent.title || ''}
-                      onChange={(e) => handleInputChange("title", e.target.value)}
-                      className="col-span-3"
-                    />
+            <div className="flex gap-2">
+              <Dialog open={isDeletePastEventsDialogOpen} onOpenChange={setIsDeletePastEventsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Past Events
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete Past Events</DialogTitle>
+                    <DialogDescription>
+                      This will permanently delete all events that have already passed and any canceled events. This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex items-center justify-center my-4">
+                    <AlertCircle className="h-12 w-12 text-destructive" />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="amount" className="text-right">
-                      Amount
-                    </Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      value={newEvent.amount || 0}
-                      onChange={(e) => handleInputChange("amount", parseFloat(e.target.value) || 0)}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="category" className="text-right">
-                      Category
-                    </Label>
-                    <Select
-                      value={newEvent.category || 'expense'}
-                      onValueChange={(value) => handleInputChange("category", value)}
-                    >
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="expense">Expense</SelectItem>
-                        <SelectItem value="income">Income</SelectItem>
-                        <SelectItem value="transfer">Transfer</SelectItem>
-                        <SelectItem value="reminder">Reminder</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="description" className="text-right">
-                      Description
-                    </Label>
-                    <Input
-                      id="description"
-                      value={newEvent.description || ''}
-                      onChange={(e) => handleInputChange("description", e.target.value)}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="recurring" className="text-right">
-                      Recurring
-                    </Label>
-                    <div className="flex items-center space-x-2 col-span-3">
-                      <Switch
-                        id="recurring"
-                        checked={newEvent.is_recurring || false}
-                        onCheckedChange={(value) => handleInputChange("is_recurring", value)}
-                      />
-                      <Label htmlFor="recurring" className="text-sm">
-                        This is a recurring event
-                      </Label>
-                    </div>
-                  </div>
-                  {newEvent.is_recurring && (
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsDeletePastEventsDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="button" variant="destructive" onClick={handleDeletePastEvents}>
+                      Delete
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              
+              <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Event
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Financial Event</DialogTitle>
+                    <DialogDescription>
+                      Create a new financial event for {format(selectedDate, "MMMM d, yyyy")}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="recurrence" className="text-right">
-                        Repeat
+                      <Label htmlFor="title" className="text-right">
+                        Title
+                      </Label>
+                      <Input
+                        id="title"
+                        value={newEvent.title || ''}
+                        onChange={(e) => handleInputChange("title", e.target.value)}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="amount" className="text-right">
+                        Amount
+                      </Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        value={newEvent.amount || 0}
+                        onChange={(e) => handleInputChange("amount", parseFloat(e.target.value) || 0)}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="category" className="text-right">
+                        Category
                       </Label>
                       <Select
-                        value={newEvent.recurrence_interval || 'monthly'}
-                        onValueChange={(value) => handleInputChange("recurrence_interval", value)}
+                        value={newEvent.category || 'expense'}
+                        onValueChange={(value) => handleInputChange("category", value)}
                       >
                         <SelectTrigger className="col-span-3">
-                          <SelectValue placeholder="Select interval" />
+                          <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                          <SelectItem value="yearly">Yearly</SelectItem>
+                          <SelectItem value="expense">Expense</SelectItem>
+                          <SelectItem value="income">Income</SelectItem>
+                          <SelectItem value="transfer">Transfer</SelectItem>
+                          <SelectItem value="reminder">Reminder</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                  )}
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsAddEventOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="button" onClick={handleAddEvent}>
-                    Add Event
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="description" className="text-right">
+                        Description
+                      </Label>
+                      <Input
+                        id="description"
+                        value={newEvent.description || ''}
+                        onChange={(e) => handleInputChange("description", e.target.value)}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="recurring" className="text-right">
+                        Recurring
+                      </Label>
+                      <div className="flex items-center space-x-2 col-span-3">
+                        <Switch
+                          id="recurring"
+                          checked={newEvent.is_recurring || false}
+                          onCheckedChange={(value) => handleInputChange("is_recurring", value)}
+                        />
+                        <Label htmlFor="recurring" className="text-sm">
+                          This is a recurring event
+                        </Label>
+                      </div>
+                    </div>
+                    {newEvent.is_recurring && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="recurrence" className="text-right">
+                          Repeat
+                        </Label>
+                        <Select
+                          value={newEvent.recurrence_interval || 'monthly'}
+                          onValueChange={(value) => handleInputChange("recurrence_interval", value)}
+                        >
+                          <SelectTrigger className="col-span-3">
+                            <SelectValue placeholder="Select interval" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                            <SelectItem value="yearly">Yearly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsAddEventOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="button" onClick={handleAddEvent}>
+                      Add Event
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
           
           <Card>
@@ -415,9 +520,12 @@ const FinancialCalendar = () => {
                   ) : (
                     <div className="space-y-4">
                       {selectedDateEvents.map((event) => (
-                        <div key={event.id} className="border rounded-md p-3">
+                        <div key={event.id} className={`border rounded-md p-3 ${event.canceled ? 'bg-muted opacity-70' : ''}`}>
                           <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-medium">{event.title}</h4>
+                            <h4 className="font-medium">
+                              {event.title}
+                              {event.canceled && <span className="ml-2 text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 px-2 py-1 rounded-full">Canceled</span>}
+                            </h4>
                             <span className={`text-sm font-medium ${
                               event.category === 'income' ? 'text-green-600' : 'text-red-600'
                             }`}>
@@ -427,14 +535,27 @@ const FinancialCalendar = () => {
                           {event.description && (
                             <p className="text-sm text-muted-foreground">{event.description}</p>
                           )}
-                          <div className="flex items-center mt-2">
-                            <span className="text-xs bg-muted px-2 py-1 rounded-full">
-                              {event.category}
-                            </span>
-                            {event.is_recurring && (
-                              <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded-full ml-2">
-                                Repeats {event.recurrence_interval}
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center">
+                              <span className="text-xs bg-muted px-2 py-1 rounded-full">
+                                {event.category}
                               </span>
+                              {event.is_recurring && (
+                                <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded-full ml-2">
+                                  Repeats {event.recurrence_interval}
+                                </span>
+                              )}
+                            </div>
+                            {!event.canceled && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleCancelEvent(event.id)}
+                                className="text-xs text-destructive hover:text-destructive/90"
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Cancel
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -455,11 +576,21 @@ const FinancialCalendar = () => {
         
         <TabsContent value="list">
           <Card>
-            <CardHeader>
-              <CardTitle>All Financial Events</CardTitle>
-              <CardDescription>
-                View all your upcoming and past financial events
-              </CardDescription>
+            <CardHeader className="flex flex-col sm:flex-row justify-between sm:items-center">
+              <div>
+                <CardTitle>All Financial Events</CardTitle>
+                <CardDescription>
+                  View all your upcoming and past financial events
+                </CardDescription>
+              </div>
+              <Dialog open={isDeletePastEventsDialogOpen} onOpenChange={setIsDeletePastEventsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="mt-4 sm:mt-0">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Past Events
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -500,7 +631,7 @@ const FinancialCalendar = () => {
                           .map(event => {
                             const eventDate = event.date instanceof Date ? event.date : new Date(event.date as string);
                             return (
-                              <div key={event.id} className="flex items-center justify-between border-b pb-2">
+                              <div key={event.id} className={`flex items-center justify-between border-b pb-2 ${event.canceled ? 'opacity-70' : ''}`}>
                                 <div className="flex items-center gap-3">
                                   <div className={`p-2 rounded-full ${
                                     event.category === 'income' ? 'bg-green-100' : 'bg-red-100'
@@ -511,7 +642,10 @@ const FinancialCalendar = () => {
                                     }
                                   </div>
                                   <div>
-                                    <p className="font-medium">{event.title}</p>
+                                    <p className="font-medium">
+                                      {event.title}
+                                      {event.canceled && <span className="ml-2 text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 px-2 py-1 rounded-full">Canceled</span>}
+                                    </p>
                                     <div className="flex items-center text-sm text-muted-foreground">
                                       <span>{format(eventDate, 'MMMM d, yyyy')}</span>
                                       {event.is_recurring && (
@@ -522,10 +656,22 @@ const FinancialCalendar = () => {
                                     </div>
                                   </div>
                                 </div>
-                                <div className={`font-medium ${
-                                  event.category === 'income' ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                  {event.category === 'income' ? '+' : '-'}${event.amount}
+                                <div className="flex items-center gap-2">
+                                  <div className={`font-medium ${
+                                    event.category === 'income' ? 'text-green-600' : 'text-red-600'
+                                  }`}>
+                                    {event.category === 'income' ? '+' : '-'}${event.amount}
+                                  </div>
+                                  {!event.canceled && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => handleCancelEvent(event.id)}
+                                      className="text-destructive hover:text-destructive/90"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             );
