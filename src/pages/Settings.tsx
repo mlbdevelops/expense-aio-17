@@ -7,10 +7,25 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Settings = () => {
   const { user, profile, logout } = useAuthStore();
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const navigate = useNavigate();
   
   // User settings form state
   const [formState, setFormState] = useState({
@@ -29,15 +44,46 @@ const Settings = () => {
   const handleLogout = async () => {
     try {
       await logout();
+      navigate("/login");
     } catch (error) {
       console.error("Error logging out:", error);
+    }
+  };
+  
+  const handleDeleteAccount = async () => {
+    try {
+      setIsDeleting(true);
+      
+      if (!user?.id) {
+        throw new Error("User ID not found");
+      }
+      
+      // Delete user account
+      const { error } = await supabase.auth.admin.deleteUser(user.id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Logout user
+      await logout();
+      
+      // Redirect to login page
+      navigate("/login");
+      
+      toast.success("Your account has been deleted successfully");
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast.error("Failed to delete account. Please try again later.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Account Settings</h1>
+        <h1 className="page-title">Account Settings</h1>
         <p className="text-muted-foreground">Manage your account preferences and profile</p>
       </div>
 
@@ -131,9 +177,35 @@ const Settings = () => {
               <CardDescription>Irreversible actions</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive/10 w-full">
-                Delete Account
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="text-destructive border-destructive hover:bg-destructive/10 w-full"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? "Deleting Account..." : "Delete Account"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete your
+                      account and remove all of your data from our servers.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleDeleteAccount}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete Account
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
         </div>

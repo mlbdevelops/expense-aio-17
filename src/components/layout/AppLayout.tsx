@@ -51,7 +51,7 @@ export const AppLayout = () => {
           <SidebarHeader>
             <div className="flex items-center gap-2">
               <DollarSign className="h-6 w-6" />
-              <h1 className="text-xl font-bold">Fiscora</h1>
+              <h1 className="text-xl font-bold">Fiscaleon</h1>
             </div>
           </SidebarHeader>
           <SidebarContent>
@@ -136,7 +136,7 @@ export const AppLayout = () => {
             </SidebarGroup>
           </SidebarContent>
         </Sidebar>
-        <div className="flex flex-1 flex-col p-4 md:p-6 pt-0">
+        <div className="flex flex-1 flex-col p-4 md:p-6 pt-0 max-w-full overflow-x-hidden">
           <Outlet />
         </div>
       </div>

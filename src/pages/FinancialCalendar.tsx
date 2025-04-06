@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
+import { useAuthStore } from "@/lib/auth";
 
 // Define types
 type FinancialEvent = {
@@ -35,6 +36,7 @@ const FinancialCalendar = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<CalendarView>("month");
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const { user } = useAuthStore();
   const [newEvent, setNewEvent] = useState<Partial<FinancialEvent>>({
     title: "",
     date: new Date(),
@@ -50,7 +52,7 @@ const FinancialCalendar = () => {
     const fetchEvents = async () => {
       setIsLoading(true);
       try {
-        // Using transactions table as a substitute for financial_events
+        // Using transactions table as a financial events source
         const { data, error } = await supabase
           .from('transactions')
           .select('*');
@@ -62,11 +64,11 @@ const FinancialCalendar = () => {
         // Map transactions to FinancialEvent format
         const formattedEvents: FinancialEvent[] = data.map(transaction => ({
           id: transaction.id,
-          title: transaction.description,
+          title: transaction.description || "No Title",
           date: new Date(transaction.date),
-          amount: transaction.amount,
-          category: transaction.category,
-          description: transaction.notes || undefined,
+          amount: transaction.amount || 0,
+          category: transaction.category || "expense",
+          description: transaction.notes || "",
           is_recurring: false, // Assuming transactions don't have recurrence info
           user_id: transaction.user_id
         }));
@@ -74,11 +76,7 @@ const FinancialCalendar = () => {
         setEvents(formattedEvents);
       } catch (error) {
         console.error('Error fetching events:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load events. Please try again later.",
-          variant: "destructive"
-        });
+        toast.error("Failed to load events. Please try again later.");
       } finally {
         setIsLoading(false);
       }
@@ -90,6 +88,11 @@ const FinancialCalendar = () => {
   // Handle adding a new event
   const handleAddEvent = async () => {
     try {
+      if (!newEvent.title || !newEvent.amount) {
+        toast.error("Please fill in all required fields");
+        return;
+      }
+      
       // Create event to insert into the transactions table
       const eventToAdd = {
         description: newEvent.title || '',
@@ -100,7 +103,7 @@ const FinancialCalendar = () => {
           ? newEvent.date.toISOString().split('T')[0]
           : new Date(newEvent.date as string).toISOString().split('T')[0],
         is_income: newEvent.category === 'income',
-        user_id: '00000000-0000-0000-0000-000000000000' // Placeholder user_id - in real app, use auth.uid()
+        user_id: user?.id || null // Use current user's ID
       };
       
       const { data, error } = await supabase
@@ -112,14 +115,18 @@ const FinancialCalendar = () => {
         throw error;
       }
       
+      if (!data || data.length === 0) {
+        throw new Error('No data returned after insertion');
+      }
+      
       // Add new event to state
       const newFinancialEvent: FinancialEvent = {
         id: data[0].id,
-        title: data[0].description,
+        title: data[0].description || "No Title",
         date: new Date(data[0].date),
-        amount: data[0].amount,
-        category: data[0].category,
-        description: data[0].notes || undefined,
+        amount: data[0].amount || 0,
+        category: data[0].category || "expense",
+        description: data[0].notes || "",
         is_recurring: false,
         user_id: data[0].user_id
       };
@@ -138,17 +145,10 @@ const FinancialCalendar = () => {
       });
       setIsAddEventOpen(false);
       
-      toast({
-        title: "Success",
-        description: "Event added successfully.",
-      });
+      toast.success("Event added successfully.");
     } catch (error) {
       console.error('Error adding event:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add event. Please try again.",
-        variant: "destructive"
-      });
+      toast.error("Failed to add event. Please try again.");
     }
   };
 
@@ -201,7 +201,7 @@ const FinancialCalendar = () => {
     const customClass = getDayClass(date);
     return (
       <div className={customClass}>
-        {day.children}
+        {day.day}
       </div>
     );
   };
@@ -212,21 +212,21 @@ const FinancialCalendar = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Financial Calendar</h1>
+        <h1 className="page-title">Financial Calendar</h1>
         <p className="text-muted-foreground">
           Track your financial events and recurring transactions
         </p>
       </div>
 
       <Tabs defaultValue="calendar" className="space-y-4">
-        <TabsList>
+        <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="calendar">Calendar View</TabsTrigger>
           <TabsTrigger value="list">List View</TabsTrigger>
         </TabsList>
         
         <TabsContent value="calendar" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="space-x-2">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-wrap gap-2">
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -274,7 +274,7 @@ const FinancialCalendar = () => {
                     </Label>
                     <Input
                       id="title"
-                      value={newEvent.title}
+                      value={newEvent.title || ''}
                       onChange={(e) => handleInputChange("title", e.target.value)}
                       className="col-span-3"
                     />
@@ -286,8 +286,8 @@ const FinancialCalendar = () => {
                     <Input
                       id="amount"
                       type="number"
-                      value={newEvent.amount}
-                      onChange={(e) => handleInputChange("amount", parseFloat(e.target.value))}
+                      value={newEvent.amount || 0}
+                      onChange={(e) => handleInputChange("amount", parseFloat(e.target.value) || 0)}
                       className="col-span-3"
                     />
                   </div>
@@ -296,7 +296,7 @@ const FinancialCalendar = () => {
                       Category
                     </Label>
                     <Select
-                      value={newEvent.category}
+                      value={newEvent.category || 'expense'}
                       onValueChange={(value) => handleInputChange("category", value)}
                     >
                       <SelectTrigger className="col-span-3">
@@ -316,7 +316,7 @@ const FinancialCalendar = () => {
                     </Label>
                     <Input
                       id="description"
-                      value={newEvent.description}
+                      value={newEvent.description || ''}
                       onChange={(e) => handleInputChange("description", e.target.value)}
                       className="col-span-3"
                     />
@@ -325,7 +325,7 @@ const FinancialCalendar = () => {
                     <Label className="text-right">Recurring?</Label>
                     <div className="flex items-center space-x-2 col-span-3">
                       <Switch
-                        checked={newEvent.is_recurring}
+                        checked={newEvent.is_recurring || false}
                         onCheckedChange={(checked) => handleInputChange("is_recurring", checked)}
                       />
                       <Label>This is a recurring event</Label>
@@ -337,7 +337,7 @@ const FinancialCalendar = () => {
                         Recurrence
                       </Label>
                       <Select
-                        value={newEvent.recurrence_interval}
+                        value={newEvent.recurrence_interval || 'monthly'}
                         onValueChange={(value) => handleInputChange("recurrence_interval", value)}
                       >
                         <SelectTrigger className="col-span-3">
@@ -373,17 +373,17 @@ const FinancialCalendar = () => {
                     View and manage your financial events
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="overflow-x-auto">
                   <Calendar
                     mode="single"
                     selected={selectedDate}
                     onSelect={(date) => date && setSelectedDate(date)}
-                    className="rounded-md border"
+                    className="rounded-md border w-full"
                     components={{
                       Day: renderDay
                     }}
                   />
-                  <div className="mt-4 flex gap-2 text-sm">
+                  <div className="mt-4 flex flex-wrap gap-2 text-sm">
                     <div className="flex items-center">
                       <div className="mr-1 h-3 w-3 rounded-full bg-green-100 dark:bg-green-950/30"></div>
                       <span>Income</span>
@@ -407,7 +407,7 @@ const FinancialCalendar = () => {
                     {selectedDateEvents.length} events scheduled
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="max-h-96 overflow-y-auto">
                   {selectedDateEvents.length === 0 ? (
                     <p className="text-center py-4 text-muted-foreground">No events scheduled for this day</p>
                   ) : (
@@ -448,7 +448,7 @@ const FinancialCalendar = () => {
                 A comprehensive list of all your financial events
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="responsive-container">
               {isLoading ? (
                 <div className="flex justify-center p-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -456,14 +456,14 @@ const FinancialCalendar = () => {
               ) : events.length === 0 ? (
                 <p className="text-center py-4 text-muted-foreground">No events found</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                   {events.sort((a, b) => {
                     const dateA = a.date instanceof Date ? a.date : new Date(a.date as string);
                     const dateB = b.date instanceof Date ? b.date : new Date(b.date as string);
                     return dateA.getTime() - dateB.getTime();
                   }).map((event) => (
-                    <div key={event.id} className="flex items-center justify-between border-b pb-2">
-                      <div>
+                    <div key={event.id} className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-2">
+                      <div className="mb-2 sm:mb-0">
                         <p className="font-medium">{event.title}</p>
                         <p className="text-sm text-muted-foreground">
                           {format(event.date instanceof Date ? event.date : new Date(event.date as string), "MMMM d, yyyy")}
