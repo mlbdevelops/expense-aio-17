@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client-extended";
 import { useAuthStore } from "@/lib/auth";
 import { formatCurrency } from "@/lib/utils";
-import { Loader2, Download, PieChart, BarChart, TrendingUp } from "lucide-react";
+import { Loader2, Download, PieChart, BarChart as BarChartIcon, TrendingUp, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from "recharts";
-import { useMobileView } from "@/hooks/use-mobile";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 type TransactionData = {
   id: string;
@@ -46,9 +45,8 @@ const FinancialReports = () => {
   const [incomeCategories, setIncomeCategories] = useState<CategoryTotal[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<CategoryTotal[]>([]);
   const [savingsRate, setSavingsRate] = useState(0);
-  const isMobile = useMobileView();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
-  // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
@@ -59,7 +57,6 @@ const FinancialReports = () => {
         const now = new Date();
         let startDate: Date;
         
-        // Calculate date range based on selection
         switch (timeRange) {
           case "1month":
             startDate = startOfMonth(subMonths(now, 1));
@@ -79,7 +76,6 @@ const FinancialReports = () => {
         
         const endDate = endOfMonth(now);
         
-        // Fetch transactions for the selected time range
         const { data, error } = await supabase
           .from('transactions')
           .select('*')
@@ -91,7 +87,6 @@ const FinancialReports = () => {
         
         setTransactions(data || []);
         
-        // Process the data for reports
         processTransactionsData(data || []);
       } catch (error: any) {
         console.error('Error fetching transactions for reports:', error);
@@ -104,25 +99,19 @@ const FinancialReports = () => {
     fetchData();
   }, [user, timeRange]);
 
-  // Process transactions data for various reports
   const processTransactionsData = (data: TransactionData[]) => {
-    // Category totals
     const expenseCategoryMap = new Map<string, number>();
     const incomeCategoryMap = new Map<string, number>();
     
-    // Monthly totals
     const monthlyMap = new Map<string, { income: number; expenses: number }>();
     
-    // Total income and expenses
     let totalIncome = 0;
     let totalExpenses = 0;
     
-    // Process each transaction
     data.forEach(transaction => {
       const { amount, category, is_income, date } = transaction;
       const monthKey = format(new Date(date), 'MMM yyyy');
       
-      // Update monthly totals
       if (!monthlyMap.has(monthKey)) {
         monthlyMap.set(monthKey, { income: 0, expenses: 0 });
       }
@@ -133,14 +122,12 @@ const FinancialReports = () => {
         monthData.income += amount;
         totalIncome += amount;
         
-        // Update income categories
         const currentAmount = incomeCategoryMap.get(category) || 0;
         incomeCategoryMap.set(category, currentAmount + amount);
       } else {
         monthData.expenses += amount;
         totalExpenses += amount;
         
-        // Update expense categories
         const currentAmount = expenseCategoryMap.get(category) || 0;
         expenseCategoryMap.set(category, currentAmount + amount);
       }
@@ -148,7 +135,6 @@ const FinancialReports = () => {
       monthlyMap.set(monthKey, monthData);
     });
     
-    // Convert maps to arrays for charts
     const expenseCategoryTotals: CategoryTotal[] = Array.from(expenseCategoryMap.entries())
       .map(([name, amount]) => ({ name, amount }))
       .sort((a, b) => b.amount - a.amount);
@@ -157,7 +143,6 @@ const FinancialReports = () => {
       .map(([name, amount]) => ({ name, amount }))
       .sort((a, b) => b.amount - a.amount);
     
-    // Prepare monthly data for charts
     const monthlyData: MonthlyTotal[] = Array.from(monthlyMap.entries())
       .map(([month, { income, expenses }]) => ({
         month,
@@ -167,7 +152,6 @@ const FinancialReports = () => {
       }))
       .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
     
-    // Calculate savings rate
     const savingsRateValue = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
     
     setExpenseCategories(expenseCategoryTotals);
@@ -176,14 +160,12 @@ const FinancialReports = () => {
     setSavingsRate(savingsRateValue);
   };
 
-  // Export report as CSV
   const exportCSV = () => {
     if (transactions.length === 0) {
       toast.error('No data to export');
       return;
     }
     
-    // Create CSV content
     const csvHeader = 'Date,Description,Category,Amount,Type\n';
     const csvContent = transactions.map(transaction => {
       return `${transaction.date},"${transaction.description}","${transaction.category}",${transaction.amount},${transaction.is_income ? 'Income' : 'Expense'}`;
@@ -202,7 +184,6 @@ const FinancialReports = () => {
     toast.success('Report exported successfully');
   };
 
-  // Get chart height based on screen size
   const getChartHeight = () => {
     return isMobile ? 300 : 400;
   };
@@ -247,8 +228,7 @@ const FinancialReports = () => {
         </Card>
       ) : (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Total Income</CardTitle>
@@ -283,18 +263,17 @@ const FinancialReports = () => {
             </Card>
           </div>
           
-          {/* Main Reports */}
-          <Tabs defaultValue="overview">
-            <TabsList className="grid grid-cols-1 sm:grid-cols-3 mb-4">
-              <TabsTrigger value="overview">
+          <Tabs defaultValue="overview" className="space-y-4">
+            <TabsList className="flex flex-wrap">
+              <TabsTrigger value="overview" className="flex-grow md:flex-grow-0">
                 <TrendingUp className="h-4 w-4 mr-2" />
                 Overview
               </TabsTrigger>
-              <TabsTrigger value="income">
-                <BarChart className="h-4 w-4 mr-2" />
+              <TabsTrigger value="income" className="flex-grow md:flex-grow-0">
+                <BarChartIcon className="h-4 w-4 mr-2" />
                 Income
               </TabsTrigger>
-              <TabsTrigger value="expenses">
+              <TabsTrigger value="expenses" className="flex-grow md:flex-grow-0">
                 <PieChart className="h-4 w-4 mr-2" />
                 Expenses
               </TabsTrigger>
@@ -306,26 +285,28 @@ const FinancialReports = () => {
                   <CardTitle>Monthly Overview</CardTitle>
                   <CardDescription>Income, expenses and savings by month</CardDescription>
                 </CardHeader>
-                <CardContent className="w-full overflow-x-auto">
-                  <div style={{ height: getChartHeight(), minWidth: isMobile ? '500px' : '100%' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsBarChart
-                        data={monthlyTotals}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip 
-                          formatter={(value: number) => formatCurrency(value)}
-                          labelFormatter={(label) => `Month: ${label}`}
-                        />
-                        <Legend />
-                        <Bar dataKey="income" name="Income" fill="#4ade80" />
-                        <Bar dataKey="expenses" name="Expenses" fill="#f87171" />
-                        <Bar dataKey="savings" name="Savings" fill="#60a5fa" />
-                      </RechartsBarChart>
-                    </ResponsiveContainer>
+                <CardContent className="w-full">
+                  <div className="w-full overflow-x-auto">
+                    <div style={{ height: getChartHeight(), minWidth: isMobile ? '500px' : '100%' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsBarChart
+                          data={monthlyTotals}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis />
+                          <Tooltip 
+                            formatter={(value: number) => formatCurrency(value)}
+                            labelFormatter={(label) => `Month: ${label}`}
+                          />
+                          <Legend />
+                          <Bar dataKey="income" name="Income" fill="#4ade80" />
+                          <Bar dataKey="expenses" name="Expenses" fill="#f87171" />
+                          <Bar dataKey="savings" name="Savings" fill="#60a5fa" />
+                        </RechartsBarChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -337,35 +318,37 @@ const FinancialReports = () => {
                   <CardTitle>Income by Category</CardTitle>
                   <CardDescription>Breakdown of income sources</CardDescription>
                 </CardHeader>
-                <CardContent className="w-full overflow-x-auto">
-                  <div style={{ height: getChartHeight(), minWidth: isMobile ? '300px' : '100%' }}>
-                    {incomeCategories.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsPieChart>
-                          <Pie
-                            data={incomeCategories}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={!isMobile}
-                            outerRadius={isMobile ? 100 : 140}
-                            fill="#8884d8"
-                            dataKey="amount"
-                            nameKey="name"
-                            label={isMobile ? undefined : ({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          >
-                            {incomeCategories.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                          <Legend />
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex justify-center items-center h-full">
-                        <p className="text-muted-foreground">No income data to display</p>
-                      </div>
-                    )}
+                <CardContent className="w-full">
+                  <div className="w-full overflow-x-auto">
+                    <div style={{ height: getChartHeight(), minWidth: isMobile ? '300px' : '100%' }}>
+                      {incomeCategories.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsPieChart>
+                            <Pie
+                              data={incomeCategories}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={!isMobile}
+                              outerRadius={isMobile ? 100 : 140}
+                              fill="#8884d8"
+                              dataKey="amount"
+                              nameKey="name"
+                              label={isMobile ? undefined : ({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            >
+                              {incomeCategories.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                            <Legend />
+                          </RechartsPieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex justify-center items-center h-full">
+                          <p className="text-muted-foreground">No income data to display</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -377,35 +360,37 @@ const FinancialReports = () => {
                   <CardTitle>Expenses by Category</CardTitle>
                   <CardDescription>Where your money is going</CardDescription>
                 </CardHeader>
-                <CardContent className="w-full overflow-x-auto">
-                  <div style={{ height: getChartHeight(), minWidth: isMobile ? '300px' : '100%' }}>
-                    {expenseCategories.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsPieChart>
-                          <Pie
-                            data={expenseCategories}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={!isMobile}
-                            outerRadius={isMobile ? 100 : 140}
-                            fill="#8884d8"
-                            dataKey="amount"
-                            nameKey="name"
-                            label={isMobile ? undefined : ({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          >
-                            {expenseCategories.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                          <Legend />
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex justify-center items-center h-full">
-                        <p className="text-muted-foreground">No expense data to display</p>
-                      </div>
-                    )}
+                <CardContent className="w-full">
+                  <div className="w-full overflow-x-auto">
+                    <div style={{ height: getChartHeight(), minWidth: isMobile ? '300px' : '100%' }}>
+                      {expenseCategories.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsPieChart>
+                            <Pie
+                              data={expenseCategories}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={!isMobile}
+                              outerRadius={isMobile ? 100 : 140}
+                              fill="#8884d8"
+                              dataKey="amount"
+                              nameKey="name"
+                              label={isMobile ? undefined : ({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            >
+                              {expenseCategories.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                            <Legend />
+                          </RechartsPieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex justify-center items-center h-full">
+                          <p className="text-muted-foreground">No expense data to display</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

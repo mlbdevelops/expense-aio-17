@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Loader2, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -59,13 +60,12 @@ const FinancialCalendar = () => {
         
         const formattedEvents: FinancialEvent[] = data.map(transaction => {
           const dateStr = transaction.date;
-          const [year, month, day] = dateStr.split('-').map(Number);
-          const eventDate = new Date(year, month - 1, day);
+          const parsedDate = parseISO(dateStr); // Use parseISO for ISO format strings
           
           return {
             id: transaction.id,
             title: transaction.description || "No Title",
-            date: eventDate,
+            date: parsedDate,
             amount: transaction.amount || 0,
             category: transaction.category || "expense",
             description: transaction.notes || "",
@@ -100,6 +100,7 @@ const FinancialCalendar = () => {
         return;
       }
       
+      // Ensure we're working with a proper Date object
       const dateToStore = newEvent.date instanceof Date 
         ? newEvent.date
         : new Date(newEvent.date as string);
@@ -129,19 +130,18 @@ const FinancialCalendar = () => {
         throw new Error('No data returned after insertion');
       }
       
-      const dateStr = data[0].date;
-      const [year, month, day] = dateStr.split('-').map(Number);
-      const eventDate = new Date(year, month - 1, day);
+      const newTransaction = data[0];
+      const parsedDate = parseISO(newTransaction.date);
       
       const newFinancialEvent: FinancialEvent = {
-        id: data[0].id,
-        title: data[0].description || "No Title",
-        date: eventDate,
-        amount: data[0].amount || 0,
-        category: data[0].category || "expense",
-        description: data[0].notes || "",
+        id: newTransaction.id,
+        title: newTransaction.description || "No Title",
+        date: parsedDate,
+        amount: newTransaction.amount || 0,
+        category: newTransaction.category || "expense",
+        description: newTransaction.notes || "",
         is_recurring: false,
-        user_id: data[0].user_id
+        user_id: newTransaction.user_id
       };
       
       setEvents([...events, newFinancialEvent]);
@@ -204,13 +204,12 @@ const FinancialCalendar = () => {
     return "relative";
   };
 
-  const renderDay = (props: any) => {
-    const date = props.date;
-    const dayNumber = date.getDate();
-    const customClass = getDayClass(date);
+  const renderDay = (day: Date, modifiers: any) => {
+    const dayNumber = day.getDate();
+    const customClass = getDayClass(day);
     
     return (
-      <div className={customClass}>
+      <div className={customClass} onClick={() => setSelectedDate(day)}>
         <div className="flex items-center justify-center h-9 w-9">
           {dayNumber}
         </div>
@@ -397,7 +396,7 @@ const FinancialCalendar = () => {
                     onSelect={(date) => date && setSelectedDate(date)}
                     className="rounded-md border"
                     components={{
-                      Day: renderDay,
+                      Day: ({ date, ...props }) => renderDay(date, props),
                     }}
                   />
                 </div>
