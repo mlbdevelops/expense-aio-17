@@ -61,17 +61,25 @@ const FinancialCalendar = () => {
           throw error;
         }
         
-        // Map transactions to FinancialEvent format
-        const formattedEvents: FinancialEvent[] = data.map(transaction => ({
-          id: transaction.id,
-          title: transaction.description || "No Title",
-          date: new Date(transaction.date),
-          amount: transaction.amount || 0,
-          category: transaction.category || "expense",
-          description: transaction.notes || "",
-          is_recurring: false, // Assuming transactions don't have recurrence info
-          user_id: transaction.user_id
-        }));
+        // Map transactions to FinancialEvent format with proper date handling
+        const formattedEvents: FinancialEvent[] = data.map(transaction => {
+          // Create a date that preserves the exact date from the database
+          const dateStr = transaction.date;
+          // Parse the date string in a way that preserves the exact date
+          const [year, month, day] = dateStr.split('-').map(Number);
+          const eventDate = new Date(year, month - 1, day); // month is 0-indexed in JS Date
+          
+          return {
+            id: transaction.id,
+            title: transaction.description || "No Title",
+            date: eventDate,
+            amount: transaction.amount || 0,
+            category: transaction.category || "expense",
+            description: transaction.notes || "",
+            is_recurring: false, // Assuming transactions don't have recurrence info
+            user_id: transaction.user_id
+          };
+        });
         
         setEvents(formattedEvents);
       } catch (error) {
@@ -101,15 +109,21 @@ const FinancialCalendar = () => {
         return;
       }
       
+      // Preserve exact date when storing to database
+      const dateToStore = newEvent.date instanceof Date 
+        ? newEvent.date
+        : new Date(newEvent.date as string);
+      
+      // Format as YYYY-MM-DD, ensuring we preserve the exact date
+      const formattedDate = format(dateToStore, 'yyyy-MM-dd');
+      
       // Create event to insert into the transactions table
       const eventToAdd = {
         description: newEvent.title || '',
         amount: newEvent.amount || 0,
         category: newEvent.category || 'expense',
         notes: newEvent.description || null,
-        date: newEvent.date instanceof Date
-          ? newEvent.date.toISOString().split('T')[0]
-          : new Date(newEvent.date as string).toISOString().split('T')[0],
+        date: formattedDate, // Store as YYYY-MM-DD format
         is_income: newEvent.category === 'income',
         user_id: user?.id || null // Use current user's ID
       };
@@ -127,11 +141,16 @@ const FinancialCalendar = () => {
         throw new Error('No data returned after insertion');
       }
       
+      // For the newly added event, create a date that preserves the exact date we intended
+      const dateStr = data[0].date;
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const eventDate = new Date(year, month - 1, day); // month is 0-indexed in JS Date
+      
       // Add new event to state
       const newFinancialEvent: FinancialEvent = {
         id: data[0].id,
         title: data[0].description || "No Title",
-        date: new Date(data[0].date),
+        date: eventDate,
         amount: data[0].amount || 0,
         category: data[0].category || "expense",
         description: data[0].notes || "",
@@ -168,7 +187,7 @@ const FinancialCalendar = () => {
     });
   };
 
-  // Get events for the selected date
+  // Get events for the selected date - fix comparison to match exact day
   const getEventsForDate = (date: Date) => {
     return events.filter(event => {
       const eventDate = event.date instanceof Date
@@ -330,26 +349,31 @@ const FinancialCalendar = () => {
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right">Recurring?</Label>
+                    <Label htmlFor="recurring" className="text-right">
+                      Recurring
+                    </Label>
                     <div className="flex items-center space-x-2 col-span-3">
                       <Switch
+                        id="recurring"
                         checked={newEvent.is_recurring || false}
-                        onCheckedChange={(checked) => handleInputChange("is_recurring", checked)}
+                        onCheckedChange={(value) => handleInputChange("is_recurring", value)}
                       />
-                      <Label>This is a recurring event</Label>
+                      <Label htmlFor="recurring" className="text-sm">
+                        This is a recurring event
+                      </Label>
                     </div>
                   </div>
                   {newEvent.is_recurring && (
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="recurrence" className="text-right">
-                        Recurrence
+                        Repeat
                       </Label>
                       <Select
                         value={newEvent.recurrence_interval || 'monthly'}
                         onValueChange={(value) => handleInputChange("recurrence_interval", value)}
                       >
                         <SelectTrigger className="col-span-3">
-                          <SelectValue placeholder="Select recurrence" />
+                          <SelectValue placeholder="Select interval" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="daily">Daily</SelectItem>
@@ -362,128 +386,168 @@ const FinancialCalendar = () => {
                   )}
                 </div>
                 <DialogFooter>
-                  <Button onClick={handleAddEvent}>Add Event</Button>
+                  <Button type="button" variant="outline" onClick={() => setIsAddEventOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="button" onClick={handleAddEvent}>
+                    Add Event
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
           
-          {isLoading ? (
-            <div className="flex justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="md:col-span-2">
-                <CardHeader>
-                  <CardTitle>Calendar</CardTitle>
-                  <CardDescription>
-                    View and manage your financial events
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="overflow-x-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle>{format(selectedDate, "MMMM yyyy")}</CardTitle>
+              <CardDescription>
+                Select a date to view or add financial events
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:mx-auto">
                   <Calendar
                     mode="single"
                     selected={selectedDate}
                     onSelect={(date) => date && setSelectedDate(date)}
-                    className="rounded-md border w-full"
+                    className="rounded-md border"
+                    components={{
+                      Day: renderDay,
+                    }}
                   />
-                  <div className="mt-4 flex flex-wrap gap-2 text-sm">
-                    <div className="flex items-center">
-                      <div className="mr-1 h-3 w-3 rounded-full bg-green-100 dark:bg-green-950/30"></div>
-                      <span>Income</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium mb-4">
+                    Events for {format(selectedDate, "MMMM d, yyyy")}
+                  </h3>
+                  {isLoading ? (
+                    <div className="flex justify-center p-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
-                    <div className="flex items-center">
-                      <div className="mr-1 h-3 w-3 rounded-full bg-red-100 dark:bg-red-950/30"></div>
-                      <span>Expense</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="mr-1 h-3 w-3 rounded-full bg-amber-100 dark:bg-amber-950/30"></div>
-                      <span>Both</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Events for {format(selectedDate, "MMMM d, yyyy")}</CardTitle>
-                  <CardDescription>
-                    {selectedDateEvents.length} events scheduled
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="max-h-96 overflow-y-auto">
-                  {selectedDateEvents.length === 0 ? (
-                    <p className="text-center py-4 text-muted-foreground">No events scheduled for this day</p>
+                  ) : selectedDateEvents.length === 0 ? (
+                    <p className="text-muted-foreground text-center p-4">
+                      No events for this date. Add one to get started.
+                    </p>
                   ) : (
                     <div className="space-y-4">
                       {selectedDateEvents.map((event) => (
-                        <div key={event.id} className="flex items-center justify-between border-b pb-2">
-                          <div>
-                            <p className="font-medium">{event.title}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {event.description || event.category}
-                              {event.is_recurring && ` • Recurring ${event.recurrence_interval}`}
-                            </p>
+                        <div key={event.id} className="border rounded-md p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="font-medium">{event.title}</h4>
+                            <span className={`text-sm font-medium ${
+                              event.category === 'income' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {event.category === 'income' ? '+' : '-'}${event.amount}
+                            </span>
                           </div>
-                          <div className={`font-medium ${
-                            event.category === "income" ? "text-green-600" : 
-                            event.category === "expense" ? "text-red-600" : 
-                            "text-blue-600"
-                          }`}>
-                            {event.category === "income" ? "+" : 
-                             event.category === "expense" ? "-" : ""}
-                            ${event.amount.toFixed(2)}
+                          {event.description && (
+                            <p className="text-sm text-muted-foreground">{event.description}</p>
+                          )}
+                          <div className="flex items-center mt-2">
+                            <span className="text-xs bg-muted px-2 py-1 rounded-full">
+                              {event.category}
+                            </span>
+                            {event.is_recurring && (
+                              <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded-full ml-2">
+                                Repeats {event.recurrence_interval}
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                  <div className="mt-4">
+                    <Button onClick={() => setIsAddEventOpen(true)} className="w-full">
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Add Event for {format(selectedDate, "MMM d")}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
         
-        <TabsContent value="list" className="space-y-4">
+        <TabsContent value="list">
           <Card>
             <CardHeader>
               <CardTitle>All Financial Events</CardTitle>
               <CardDescription>
-                A comprehensive list of all your financial events
+                View all your upcoming and past financial events
               </CardDescription>
             </CardHeader>
-            <CardContent className="responsive-container">
+            <CardContent>
               {isLoading ? (
                 <div className="flex justify-center p-8">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : events.length === 0 ? (
-                <p className="text-center py-4 text-muted-foreground">No events found</p>
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">You don't have any financial events yet.</p>
+                  <Button onClick={() => setIsAddEventOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Your First Event
+                  </Button>
+                </div>
               ) : (
-                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                  {events.sort((a, b) => {
-                    const dateA = a.date instanceof Date ? a.date : new Date(a.date as string);
-                    const dateB = b.date instanceof Date ? b.date : new Date(b.date as string);
-                    return dateA.getTime() - dateB.getTime();
-                  }).map((event) => (
-                    <div key={event.id} className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-2">
-                      <div className="mb-2 sm:mb-0">
-                        <p className="font-medium">{event.title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(event.date instanceof Date ? event.date : new Date(event.date as string), "MMMM d, yyyy")}
-                          {" • "}{event.description || event.category}
-                          {event.is_recurring && ` • Recurring ${event.recurrence_interval}`}
-                        </p>
-                      </div>
-                      <div className={`font-medium ${
-                        event.category === "income" ? "text-green-600" : 
-                        event.category === "expense" ? "text-red-600" : 
-                        "text-blue-600"
-                      }`}>
-                        {event.category === "income" ? "+" : 
-                         event.category === "expense" ? "-" : ""}
-                        ${event.amount.toFixed(2)}
+                <div className="space-y-4">
+                  {/* Group events by month and year */}
+                  {Array.from(new Set(events.map(event => {
+                    const date = event.date instanceof Date ? event.date : new Date(event.date as string);
+                    return format(date, 'MMMM yyyy');
+                  }))).sort((a, b) => {
+                    const dateA = new Date(a);
+                    const dateB = new Date(b);
+                    return dateB.getTime() - dateA.getTime();
+                  }).map(monthYear => (
+                    <div key={monthYear}>
+                      <h3 className="font-medium text-lg mb-2">{monthYear}</h3>
+                      <div className="space-y-2">
+                        {events
+                          .filter(event => {
+                            const date = event.date instanceof Date ? event.date : new Date(event.date as string);
+                            return format(date, 'MMMM yyyy') === monthYear;
+                          })
+                          .sort((a, b) => {
+                            const dateA = a.date instanceof Date ? a.date : new Date(a.date as string);
+                            const dateB = b.date instanceof Date ? b.date : new Date(b.date as string);
+                            return dateB.getTime() - dateA.getTime();
+                          })
+                          .map(event => {
+                            const eventDate = event.date instanceof Date ? event.date : new Date(event.date as string);
+                            return (
+                              <div key={event.id} className="flex items-center justify-between border-b pb-2">
+                                <div className="flex items-center gap-3">
+                                  <div className={`p-2 rounded-full ${
+                                    event.category === 'income' ? 'bg-green-100' : 'bg-red-100'
+                                  }`}>
+                                    {event.category === 'income' ? 
+                                      <ArrowUpCircle className="h-4 w-4 text-green-500" /> : 
+                                      <ArrowDownCircle className="h-4 w-4 text-red-500" />
+                                    }
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">{event.title}</p>
+                                    <div className="flex items-center text-sm text-muted-foreground">
+                                      <span>{format(eventDate, 'MMMM d, yyyy')}</span>
+                                      {event.is_recurring && (
+                                        <span className="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-1 rounded">
+                                          Recurring
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className={`font-medium ${
+                                  event.category === 'income' ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {event.category === 'income' ? '+' : '-'}${event.amount}
+                                </div>
+                              </div>
+                            );
+                          })}
                       </div>
                     </div>
                   ))}
