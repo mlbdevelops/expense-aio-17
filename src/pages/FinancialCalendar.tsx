@@ -379,9 +379,6 @@ const FinancialCalendar = () => {
                     selected={selectedDate}
                     onSelect={(date) => date && setSelectedDate(date)}
                     className="rounded-md border w-full"
-                    components={{
-                      Day: renderDay
-                    }}
                   />
                   <div className="mt-4 flex flex-wrap gap-2 text-sm">
                     <div className="flex items-center">
