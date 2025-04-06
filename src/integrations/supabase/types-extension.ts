@@ -19,6 +19,7 @@ export interface ExtendedDatabase extends Database {
           notes: string | null;
           created_at: string;
           updated_at: string;
+          canceled?: boolean; // Add the canceled field
         };
         Insert: {
           id?: string;
@@ -31,6 +32,7 @@ export interface ExtendedDatabase extends Database {
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
+          canceled?: boolean; // Add the canceled field
         };
         Update: {
           id?: string;
@@ -43,6 +45,7 @@ export interface ExtendedDatabase extends Database {
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
+          canceled?: boolean; // Add the canceled field
         };
         Relationships: [];
       };
