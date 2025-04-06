@@ -16,6 +16,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { MobileNavBar } from "./MobileNavBar";
 import {
   BarChart3,
   CalendarDays,
@@ -47,6 +48,9 @@ export const AppLayout = () => {
   return (
     <SidebarProvider>
       <div className="flex min-h-svh w-full">
+        {/* Mobile Navigation Bar */}
+        <MobileNavBar />
+        
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center gap-2">
@@ -136,7 +140,7 @@ export const AppLayout = () => {
             </SidebarGroup>
           </SidebarContent>
         </Sidebar>
-        <div className="flex flex-1 flex-col p-4 md:p-6 pt-0 max-w-full overflow-x-hidden">
+        <div className="flex flex-1 flex-col p-4 md:p-6 pt-0 max-w-full overflow-x-hidden md:pt-0 pt-16">
           <Outlet />
         </div>
       </div>

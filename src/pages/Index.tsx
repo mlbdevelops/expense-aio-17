@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, BarChart3, CreditCard, Target, PieChart, CalendarDays, ArrowUpCircle, ArrowDownCircle, CheckCircle2, Sparkles } from "lucide-react";
@@ -99,23 +98,75 @@ const Index = () => {
             >
               Your personal finance manager. Take control of your financial future with intuitive budgeting, tracking, and planning tools designed to bring clarity to your finances.
             </motion.p>
+            
+            {/* Enhanced Get Started Section */}
             <motion.div 
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.3, delay: 0.4 }}
-              className="flex flex-col sm:flex-row gap-4"
+              className="w-full max-w-md mx-auto"
             >
-              <Button size="lg" onClick={() => navigate("/login")} className="expense-gradient text-white px-8 py-6 text-lg">
-                Get Started <ChevronRight className="ml-2 h-5 w-5" />
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => navigate("/register")} className="px-8 py-6 text-lg">
-                Create Account
-              </Button>
+              <div className="glass-card rounded-xl p-6 mb-6 backdrop-blur-md shadow-lg border border-white/20">
+                <div className="text-center mb-4">
+                  <h2 className="text-2xl font-bold mb-2 expense-gradient-text">Start Your Financial Journey</h2>
+                  <p className="text-muted-foreground">Join thousands of users transforming their finances today</p>
+                </div>
+                
+                <div className="space-y-4">
+                  <Button 
+                    size="lg" 
+                    onClick={() => navigate("/login")} 
+                    className="w-full expense-gradient text-white py-6 text-lg transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
+                  >
+                    Get Started <ChevronRight className="ml-2 h-5 w-5" />
+                  </Button>
+                  
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    onClick={() => navigate("/register")} 
+                    className="w-full py-6 text-lg border-2 transition-all duration-300 hover:bg-accent/20"
+                  >
+                    Create Account
+                  </Button>
+                  
+                  <div className="pt-4 text-sm text-center text-muted-foreground">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="w-8 h-[1px] bg-border"></span>
+                      <span>Benefits</span>
+                      <span className="w-8 h-[1px] bg-border"></span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div className="flex items-center text-left">
+                        <CheckCircle2 className="h-4 w-4 text-primary mr-2 flex-shrink-0" />
+                        <span className="text-xs">Easy Budgeting</span>
+                      </div>
+                      <div className="flex items-center text-left">
+                        <CheckCircle2 className="h-4 w-4 text-primary mr-2 flex-shrink-0" />
+                        <span className="text-xs">Expense Tracking</span>
+                      </div>
+                      <div className="flex items-center text-left">
+                        <CheckCircle2 className="h-4 w-4 text-primary mr-2 flex-shrink-0" />
+                        <span className="text-xs">Savings Goals</span>
+                      </div>
+                      <div className="flex items-center text-left">
+                        <CheckCircle2 className="h-4 w-4 text-primary mr-2 flex-shrink-0" />
+                        <span className="text-xs">Financial Insights</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-center text-sm text-muted-foreground">
+                <p>Already managing your finances with us? <a onClick={() => navigate("/login")} className="text-primary hover:underline cursor-pointer">Sign in</a></p>
+              </div>
             </motion.div>
           </div>
         </div>
       </section>
 
+      {/* Rest of the sections */}
       {/* Dashboard Preview */}
       <section className="py-12 md:py-24">
         <div className="container mx-auto px-4">
