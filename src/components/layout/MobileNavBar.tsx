@@ -10,8 +10,7 @@ import {
   Menu, 
   PieChart, 
   Settings, 
-  Target, 
-  X 
+  Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -49,16 +48,14 @@ export const MobileNavBar = () => {
               <span className="sr-only">Toggle menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[80vw] max-w-sm">
+          <SheetContent side="left" className="w-[80vw] max-w-sm">
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
                   <DollarSign className="h-6 w-6 text-primary mr-2" />
                   <span className="font-bold text-xl">Fiscaleon</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
-                  <X className="h-5 w-5" />
-                </Button>
+                {/* Removed the duplicate X button here */}
               </div>
               <nav className="flex-1">
                 <ul className="space-y-2">
