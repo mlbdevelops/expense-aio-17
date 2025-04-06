@@ -50,12 +50,9 @@ export const MobileNavBar = () => {
           </SheetTrigger>
           <SheetContent side="left" className="w-[80vw] max-w-sm">
             <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                  <DollarSign className="h-6 w-6 text-primary mr-2" />
-                  <span className="font-bold text-xl">Fiscaleon</span>
-                </div>
-                {/* Removed the duplicate X button here */}
+              <div className="flex items-center mb-6">
+                <DollarSign className="h-6 w-6 text-primary mr-2" />
+                <span className="font-bold text-xl">Fiscaleon</span>
               </div>
               <nav className="flex-1">
                 <ul className="space-y-2">

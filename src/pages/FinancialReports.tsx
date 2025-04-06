@@ -11,6 +11,7 @@ import { Loader2, Download, PieChart, BarChart, TrendingUp } from "lucide-react"
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend } from "recharts";
+import { useMobileView } from "@/hooks/use-mobile";
 
 type TransactionData = {
   id: string;
@@ -45,6 +46,7 @@ const FinancialReports = () => {
   const [incomeCategories, setIncomeCategories] = useState<CategoryTotal[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<CategoryTotal[]>([]);
   const [savingsRate, setSavingsRate] = useState(0);
+  const isMobile = useMobileView();
 
   // Fetch data
   useEffect(() => {
@@ -200,17 +202,22 @@ const FinancialReports = () => {
     toast.success('Report exported successfully');
   };
 
+  // Get chart height based on screen size
+  const getChartHeight = () => {
+    return isMobile ? 300 : 400;
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-1.5">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Financial Reports</h1>
           <p className="text-muted-foreground">Analyze your income, expenses and savings</p>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Select time range" />
             </SelectTrigger>
             <SelectContent>
@@ -221,7 +228,7 @@ const FinancialReports = () => {
             </SelectContent>
           </Select>
           
-          <Button onClick={exportCSV} variant="outline">
+          <Button onClick={exportCSV} variant="outline" className="w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
@@ -241,13 +248,13 @@ const FinancialReports = () => {
       ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Total Income</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-xl sm:text-2xl font-bold text-green-600">
                   {formatCurrency(incomeCategories.reduce((sum, category) => sum + category.amount, 0))}
                 </div>
               </CardContent>
@@ -258,7 +265,7 @@ const FinancialReports = () => {
                 <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">
+                <div className="text-xl sm:text-2xl font-bold text-red-600">
                   {formatCurrency(expenseCategories.reduce((sum, category) => sum + category.amount, 0))}
                 </div>
               </CardContent>
@@ -269,7 +276,7 @@ const FinancialReports = () => {
                 <CardTitle className="text-sm font-medium">Savings Rate</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
+                <div className="text-xl sm:text-2xl font-bold">
                   {savingsRate > 0 ? `${savingsRate.toFixed(1)}%` : '0%'}
                 </div>
               </CardContent>
@@ -299,8 +306,8 @@ const FinancialReports = () => {
                   <CardTitle>Monthly Overview</CardTitle>
                   <CardDescription>Income, expenses and savings by month</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-[400px]">
+                <CardContent className="w-full overflow-x-auto">
+                  <div style={{ height: getChartHeight(), minWidth: isMobile ? '500px' : '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsBarChart
                         data={monthlyTotals}
@@ -330,8 +337,8 @@ const FinancialReports = () => {
                   <CardTitle>Income by Category</CardTitle>
                   <CardDescription>Breakdown of income sources</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-[400px]">
+                <CardContent className="w-full overflow-x-auto">
+                  <div style={{ height: getChartHeight(), minWidth: isMobile ? '300px' : '100%' }}>
                     {incomeCategories.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsPieChart>
@@ -339,12 +346,12 @@ const FinancialReports = () => {
                             data={incomeCategories}
                             cx="50%"
                             cy="50%"
-                            labelLine={true}
-                            outerRadius={140}
+                            labelLine={!isMobile}
+                            outerRadius={isMobile ? 100 : 140}
                             fill="#8884d8"
                             dataKey="amount"
                             nameKey="name"
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            label={isMobile ? undefined : ({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                           >
                             {incomeCategories.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -370,8 +377,8 @@ const FinancialReports = () => {
                   <CardTitle>Expenses by Category</CardTitle>
                   <CardDescription>Where your money is going</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-[400px]">
+                <CardContent className="w-full overflow-x-auto">
+                  <div style={{ height: getChartHeight(), minWidth: isMobile ? '300px' : '100%' }}>
                     {expenseCategories.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsPieChart>
@@ -379,12 +386,12 @@ const FinancialReports = () => {
                             data={expenseCategories}
                             cx="50%"
                             cy="50%"
-                            labelLine={true}
-                            outerRadius={140}
+                            labelLine={!isMobile}
+                            outerRadius={isMobile ? 100 : 140}
                             fill="#8884d8"
                             dataKey="amount"
                             nameKey="name"
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            label={isMobile ? undefined : ({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                           >
                             {expenseCategories.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

@@ -85,6 +85,14 @@ const FinancialCalendar = () => {
     fetchEvents();
   }, []);
 
+  // Update newEvent date when selectedDate changes
+  useEffect(() => {
+    setNewEvent(prev => ({
+      ...prev,
+      date: selectedDate
+    }));
+  }, [selectedDate]);
+
   // Handle adding a new event
   const handleAddEvent = async () => {
     try {
@@ -136,7 +144,7 @@ const FinancialCalendar = () => {
       // Reset form and close dialog
       setNewEvent({
         title: "",
-        date: new Date(),
+        date: selectedDate,
         amount: 0,
         category: "expense",
         description: "",
@@ -210,7 +218,7 @@ const FinancialCalendar = () => {
   const selectedDateEvents = getEventsForDate(selectedDate);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-1.5">
       <div>
         <h1 className="page-title">Financial Calendar</h1>
         <p className="text-muted-foreground">
@@ -264,7 +272,7 @@ const FinancialCalendar = () => {
                 <DialogHeader>
                   <DialogTitle>Add Financial Event</DialogTitle>
                   <DialogDescription>
-                    Create a new financial event or reminder.
+                    Create a new financial event for {format(selectedDate, "MMMM d, yyyy")}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
