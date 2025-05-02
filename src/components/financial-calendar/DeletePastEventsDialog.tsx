@@ -4,18 +4,20 @@ import {
   DialogHeader, DialogTitle, DialogTrigger 
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Trash2 } from "lucide-react";
+import { AlertCircle, Loader2, Trash2 } from "lucide-react";
 
 interface DeletePastEventsDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onDeletePastEvents: () => void;
+  isDeleting?: boolean;
 }
 
 export const DeletePastEventsDialog = ({ 
   isOpen, 
   onOpenChange, 
-  onDeletePastEvents 
+  onDeletePastEvents,
+  isDeleting = false
 }: DeletePastEventsDialogProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -30,11 +32,23 @@ export const DeletePastEventsDialog = ({
           <AlertCircle className="h-12 w-12 text-destructive" />
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isDeleting}>
             Cancel
           </Button>
-          <Button type="button" variant="destructive" onClick={onDeletePastEvents}>
-            Delete
+          <Button 
+            type="button" 
+            variant="destructive" 
+            onClick={onDeletePastEvents}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              <>Delete</>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

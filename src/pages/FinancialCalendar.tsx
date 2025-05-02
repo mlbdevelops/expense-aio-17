@@ -17,6 +17,7 @@ const FinancialCalendar = () => {
   const [view, setView] = useState<CalendarViewType>("month");
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isDeletePastEventsDialogOpen, setIsDeletePastEventsDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { user } = useAuthStore();
   const [newEvent, setNewEvent] = useState<Partial<FinancialEvent>>({
     title: "",
@@ -97,17 +98,22 @@ const FinancialCalendar = () => {
   };
 
   const handleDeletePastEvents = async () => {
-    setIsLoading(true);
+    setIsDeleting(true);
     try {
+      console.log("Starting deletion process with events:", events);
       const deletedEventIds = await deletePastEvents(events);
+      console.log("Deletion completed. Deleted IDs:", deletedEventIds);
       
-      if (deletedEventIds.length > 0) {
-        setEvents(prevEvents => prevEvents.filter(event => !deletedEventIds.includes(event.id)));
+      if (deletedEventIds && deletedEventIds.length > 0) {
+        // Create a new array with the filtered events
+        const updatedEvents = events.filter(event => !deletedEventIds.includes(event.id));
+        console.log("Events after filtering:", updatedEvents);
+        setEvents(updatedEvents);
       }
     } catch (error) {
       console.error("Error in delete operation:", error);
     } finally {
-      setIsLoading(false);
+      setIsDeleting(false);
       setIsDeletePastEventsDialogOpen(false);
     }
   };
@@ -174,6 +180,7 @@ const FinancialCalendar = () => {
         isOpen={isDeletePastEventsDialogOpen}
         onOpenChange={setIsDeletePastEventsDialogOpen}
         onDeletePastEvents={handleDeletePastEvents}
+        isDeleting={isDeleting}
       />
     </div>
   );

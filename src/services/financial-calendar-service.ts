@@ -128,35 +128,60 @@ export const deletePastEvents = async (events: FinancialEvent[]): Promise<string
     today.setHours(0, 0, 0, 0);
     
     // Get all past events
-    const pastEventIds = events
+    const pastEvents = events
       .filter(event => {
         const eventDate = event.date instanceof Date 
           ? event.date 
           : new Date(event.date as string);
         return isBefore(eventDate, today) || event.canceled;
-      })
-      .map(event => event.id);
+      });
     
-    if (pastEventIds.length === 0) {
+    if (pastEvents.length === 0) {
       toast.info("No past or canceled events to delete");
       return [];
     }
     
-    console.log("Attempting to delete these IDs:", pastEventIds);
+    // Extract IDs properly ensuring they're strings
+    const pastEventIds = pastEvents.map(event => event.id);
     
-    // Delete from database
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .in('id', pastEventIds);
+    console.log("Filtered events to delete:", pastEvents);
+    console.log("IDs to delete:", pastEventIds);
     
-    if (error) {
-      console.error('Delete error details:', error);
-      throw error;
+    if (pastEventIds.length === 0) {
+      toast.info("No valid IDs found to delete");
+      return [];
     }
     
-    toast.success(`Successfully deleted ${pastEventIds.length} past or canceled event${pastEventIds.length !== 1 ? 's' : ''}`);
-    return pastEventIds;
+    // Delete from database one by one to avoid IN operator issues
+    let successfullyDeleted: string[] = [];
+    let hasErrors = false;
+    
+    for (const id of pastEventIds) {
+      console.log(`Attempting to delete ID: ${id}`);
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error(`Error deleting ID ${id}:`, error);
+        hasErrors = true;
+      } else {
+        successfullyDeleted.push(id);
+      }
+    }
+    
+    if (hasErrors) {
+      if (successfullyDeleted.length > 0) {
+        toast.success(`Successfully deleted ${successfullyDeleted.length} out of ${pastEventIds.length} events`);
+      } else {
+        toast.error("Failed to delete events. Please try again.");
+      }
+    } else {
+      toast.success(`Successfully deleted ${successfullyDeleted.length} past or canceled event${successfullyDeleted.length !== 1 ? 's' : ''}`);
+    }
+    
+    return successfullyDeleted;
   } catch (error) {
     console.error('Error deleting past events:', error);
     toast.error("Failed to delete past events. Please try again.");
