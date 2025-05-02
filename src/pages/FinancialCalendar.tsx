@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthStore } from "@/lib/auth";
@@ -96,10 +97,17 @@ const FinancialCalendar = () => {
   };
 
   const handleDeletePastEvents = async () => {
-    const deletedEventIds = await deletePastEvents(events);
-    
-    if (deletedEventIds.length > 0) {
-      setEvents(events.filter(event => !deletedEventIds.includes(event.id)));
+    setIsLoading(true);
+    try {
+      const deletedEventIds = await deletePastEvents(events);
+      
+      if (deletedEventIds.length > 0) {
+        setEvents(prevEvents => prevEvents.filter(event => !deletedEventIds.includes(event.id)));
+      }
+    } catch (error) {
+      console.error("Error in delete operation:", error);
+    } finally {
+      setIsLoading(false);
       setIsDeletePastEventsDialogOpen(false);
     }
   };

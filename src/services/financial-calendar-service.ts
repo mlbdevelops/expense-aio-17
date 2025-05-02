@@ -109,6 +109,7 @@ export const cancelEvent = async (eventId: string): Promise<boolean> => {
       .eq('id', eventId);
     
     if (error) {
+      console.error('Error details:', error);
       throw error;
     }
     
@@ -141,6 +142,8 @@ export const deletePastEvents = async (events: FinancialEvent[]): Promise<string
       return [];
     }
     
+    console.log("Attempting to delete these IDs:", pastEventIds);
+    
     // Delete from database
     const { error } = await supabase
       .from('transactions')
@@ -148,6 +151,7 @@ export const deletePastEvents = async (events: FinancialEvent[]): Promise<string
       .in('id', pastEventIds);
     
     if (error) {
+      console.error('Delete error details:', error);
       throw error;
     }
     
